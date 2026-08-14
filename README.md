@@ -1,90 +1,159 @@
-# Ionic Essential
+<a id="readme-top"></a>
 
-Ionic Essential is a local-first compatibility layer for multi-agent systems.
-It turns agent instruction files into explicit contracts, maps dependencies
-between agents, and identifies structural or semantic breakages before they
-ship.
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![Release][release-shield]][release-url]
+[![MIT License][license-shield]][license-url]
 
-Ionic Essential is open source under the [MIT License](LICENSE).
+<br />
+<div align="center">
+  <a href="https://github.com/tacticocc/Ionic">
+    <img src="brand/Ionic%20Icon%20BG.png" alt="Ionic logo" width="128" height="128">
+  </a>
 
-## Download
+  <h3 align="center">Ionic Essential</h3>
 
-The current desktop release is
-[Ionic Essential 0.6.1](https://github.com/tacticocc/Ionic/releases/tag/v0.6.1).
-The Windows installer is published as a GitHub Release asset rather than
-committed to this source repository.
+  <p align="center">
+    The local-first compatibility layer for multi-agent systems.
+    <br />
+    Register agent contracts, map dependencies, and catch breakages before they ship.
+    <br />
+    <br />
+    <a href="https://github.com/tacticocc/Ionic/releases/latest"><strong>Download the latest release »</strong></a>
+    <br />
+    <br />
+    <a href="https://github.com/tacticocc/Ionic">Browse Source</a>
+    &middot;
+    <a href="https://github.com/tacticocc/Ionic/issues/new?template=bug-report.yml">Report Bug</a>
+    &middot;
+    <a href="https://github.com/tacticocc/Ionic/issues/new?template=feature-request.yml">Request Feature</a>
+  </p>
+</div>
+
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li>
+      <a href="#about-the-project">About the Project</a>
+      <ul>
+        <li><a href="#core-capabilities">Core Capabilities</a></li>
+        <li><a href="#built-with">Built With</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#getting-started">Getting Started</a>
+      <ul>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#windows-desktop">Windows Desktop</a></li>
+        <li><a href="#install-from-source">Install From Source</a></li>
+        <li><a href="#build-the-desktop-app">Build the Desktop App</a></li>
+      </ul>
+    </li>
+    <li><a href="#usage">Usage</a></li>
+    <li><a href="#privacy-and-security">Privacy and Security</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license-and-trademarks">License and Trademarks</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
+  </ol>
+</details>
+
+## About the Project
+
+Agent systems often depend on instruction files whose behavioral contracts are
+implicit. A small change to one agent's tools, outputs, constraints, or persona
+can silently break every agent that depends on it.
+
+Ionic Essential turns those instructions into versioned contracts. It keeps a
+local registry, builds the dependency graph, and checks proposed changes against
+their consumers before rollout. The same core is available through a desktop
+app, command-line interface, Python library, and MCP server.
+
+Ionic Essential is open source under the MIT License and has no Ionic account
+requirement or Ionic telemetry.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+### Core Capabilities
+
+- Discover agent instruction files such as `AGENTS.md` and `CLAUDE.md`.
+- Extract contracts for tools, inputs, outputs, capabilities, constraints,
+  persona rules, and dependencies.
+- Register and version contracts in a local SQLite registry.
+- Visualize direct and transitive dependencies.
+- Detect structural compatibility problems locally by default.
+- Opt in to semantic review with a configured provider or supported
+  subscription runtime.
+- Use Ionic through the desktop app, CLI, Python API, or MCP.
+
+### Built With
+
+- [Python 3.11+](https://www.python.org/)
+- [Pydantic](https://docs.pydantic.dev/)
+- [Typer](https://typer.tiangolo.com/)
+- [Electron](https://www.electronjs.org/)
+- [Node.js 22+](https://nodejs.org/)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Getting Started
+
+Choose the packaged Windows desktop app or install the Python project from
+source. Neither path requires an Ionic account.
+
+### Prerequisites
+
+For the Python CLI, library, or MCP server:
+
+- Python 3.11 or newer
+- Git
+
+For desktop development:
+
+- Node.js 22 or newer
+- npm
+- A compatible Python build environment
+
+### Windows Desktop
+
+Download [Ionic Essential 0.6.1][release-url] from GitHub Releases. The installer
+is a release asset and is not committed to this source repository.
 
 The current Windows build is not Authenticode-signed. Verify its SHA-256 digest
-against the value in the release notes before running it.
-
-## What Ionic does
-
-- Discovers agent instruction files such as `AGENTS.md` and `CLAUDE.md`.
-- Extracts versioned contracts describing tools, inputs, outputs, constraints,
-  capabilities, and dependencies.
-- Maintains a local contract registry and dependency graph.
-- Compares proposed changes with dependent contracts.
-- Runs structural compatibility checks locally by default.
-- Exposes the same core through a CLI, desktop app, and MCP server.
-
-## Privacy boundary
-
-Ionic has no Ionic telemetry and does not require an Ionic account. Structural
-analysis and the registry remain local. Optional semantic review is explicit;
-when enabled, selected contract content is handled by the model provider or
-subscription runtime you configure, under that provider's terms.
-
-Do not include credentials, customer source code, or private contracts in
-public issues or test fixtures.
-
-## Install from source
-
-Ionic requires Python 3.11 or newer.
+before running it:
 
 ```text
-python -m pip install -e .
-ionic version
+7F4104CEAC355594BDA5DB11B60967262765337A34D8AF1F3EC05D5B36837F35
 ```
 
-Install the MCP integration when needed:
+### Install From Source
 
-```text
-python -m pip install -e ".[mcp]"
-ionic serve
-```
+1. Clone the repository.
 
-## Quick start
+   ```sh
+   git clone https://github.com/tacticocc/Ionic.git
+   cd Ionic
+   ```
 
-Register one instruction file or scan a directory:
+2. Install Ionic in editable mode.
 
-```text
-ionic register path/to/AGENTS.md
-ionic register path/to/repository
-```
+   ```sh
+   python -m pip install -e .
+   ionic version
+   ```
 
-Inspect the local registry and dependency graph:
+3. Install the MCP integration when needed.
 
-```text
-ionic list
-ionic graph
-ionic status
-```
+   ```sh
+   python -m pip install -e ".[mcp]"
+   ionic serve
+   ```
 
-Check a proposed contract change:
+### Build the Desktop App
 
-```text
-ionic check <contract-id> --against path/to/changed/AGENTS.md
-```
-
-Structural analysis is the default. Semantic review requires an explicit
-`--llm` opt-in and a configured provider or supported subscription runtime.
-
-## Desktop development
-
-The desktop app requires Node.js 22 or newer and a compatible Python build
-environment.
-
-```text
+```sh
 cd desktop
 npm ci --no-audit --no-fund
 npm test
@@ -94,18 +163,140 @@ npm run dist:win
 Local builds are unsigned unless you supply your own signing identity. Tactico
 Technologies signing credentials are not stored in this repository.
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Usage
+
+### Register agent contracts
+
+Register one instruction file or discover supported files in a directory:
+
+```sh
+ionic register path/to/AGENTS.md
+ionic register path/to/repository
+```
+
+### Inspect dependencies
+
+```sh
+ionic list
+ionic graph
+ionic status
+```
+
+### Check a proposed change
+
+```sh
+ionic check <contract-id> --against path/to/changed/AGENTS.md
+```
+
+Structural checks are the default. Semantic review requires an explicit `--llm`
+opt-in and a configured provider or supported subscription runtime:
+
+```sh
+ionic check <contract-id> --against path/to/changed/AGENTS.md --llm
+```
+
+### Scan a multi-repository workspace
+
+```sh
+ionic workspace scan --repo app=path/to/app --repo agent=path/to/agent
+ionic workspace check --repo app=path/to/app --repo agent=path/to/agent
+```
+
+Workspace v1 checks are structural and local.
+
+### Run the MCP server
+
+```sh
+ionic serve
+```
+
+Use `ionic --help` or `ionic <command> --help` for the complete command surface.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Privacy and Security
+
+- Ionic emits no Ionic telemetry.
+- Structural analysis and the contract registry remain local.
+- Semantic review is always opt-in.
+- When semantic review is enabled, selected contract content is handled by the
+  model provider or subscription runtime you configure, under that provider's
+  terms.
+- Provider credentials must not be committed, logged, or included in test
+  fixtures.
+
+Do not post customer source code, private contracts, personal data, or
+credentials in public issues. Report suspected vulnerabilities privately by
+following [SECURITY.md](SECURITY.md).
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Roadmap
+
+Ionic Essential is evolving in public. Proposed work and known problems are
+tracked through GitHub Issues:
+
+- [Open issues][issues-url]
+- [Feature requests](https://github.com/tacticocc/Ionic/issues?q=is%3Aissue+label%3Aenhancement)
+- [Current releases][release-url]
+
+Roadmap items are proposals, not release commitments. Please open a feature
+request before starting a substantial behavioral change.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull request.
-Use the provided issue forms, keep changes focused on Ionic Essential, and add
-tests for behavioral changes.
+Contributions that improve Ionic Essential are welcome.
 
-Report vulnerabilities privately by following [SECURITY.md](SECURITY.md).
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md).
+2. Fork the project.
+3. Create a focused branch: `git checkout -b feature/short-description`.
+4. Add or update tests for behavioral changes.
+5. Run the relevant Python and desktop test suites.
+6. Commit your changes and open a pull request using the repository template.
 
-## License and trademarks
+By contributing, you agree that your contribution is provided under this
+repository's MIT License.
 
-The source code is licensed under the [MIT License](LICENSE). Third-party terms
-are listed in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-The MIT License does not grant branding rights to the Ionic or Tactico names,
-logos, or trade dress. See [TRADEMARKS.md](TRADEMARKS.md).
+## License and Trademarks
+
+The source code is distributed under the [MIT License](LICENSE). Applicable
+third-party terms are listed in
+[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+
+The MIT License does not grant branding rights to the Ionic or Tactico
+Technologies names, logos, icons, or trade dress. See
+[TRADEMARKS.md](TRADEMARKS.md) before distributing a modified build.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Acknowledgments
+
+- README structure adapted from
+  [Best-README-Template](https://github.com/othneildrew/Best-README-Template).
+- [Choose an Open Source License](https://choosealicense.com/)
+- [Shields.io](https://shields.io/)
+- The open-source projects and contributors listed in
+  [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)
+
+Project link: [https://github.com/tacticocc/Ionic](https://github.com/tacticocc/Ionic)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+[contributors-shield]: https://img.shields.io/github/contributors/tacticocc/Ionic.svg?style=for-the-badge
+[contributors-url]: https://github.com/tacticocc/Ionic/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/tacticocc/Ionic.svg?style=for-the-badge
+[forks-url]: https://github.com/tacticocc/Ionic/network/members
+[stars-shield]: https://img.shields.io/github/stars/tacticocc/Ionic.svg?style=for-the-badge
+[stars-url]: https://github.com/tacticocc/Ionic/stargazers
+[issues-shield]: https://img.shields.io/github/issues/tacticocc/Ionic.svg?style=for-the-badge
+[issues-url]: https://github.com/tacticocc/Ionic/issues
+[release-shield]: https://img.shields.io/github/v/release/tacticocc/Ionic.svg?style=for-the-badge
+[release-url]: https://github.com/tacticocc/Ionic/releases/tag/v0.6.1
+[license-shield]: https://img.shields.io/github/license/tacticocc/Ionic.svg?style=for-the-badge
+[license-url]: https://github.com/tacticocc/Ionic/blob/main/LICENSE
