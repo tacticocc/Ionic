@@ -178,7 +178,7 @@ def _verify_locked_environment(
         if installed_distributions is None
         else installed_distributions
     )
-    ignored = {"ionic-contracts", "pip", "wheel"}
+    ignored = {"ionic", "pip", "wheel"}
     mismatches: list[str] = []
     unexpected: list[str] = []
     for distribution in distributions:

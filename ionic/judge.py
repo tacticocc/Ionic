@@ -419,7 +419,7 @@ class AnthropicJudge:
         except ModuleNotFoundError as exc:  # pragma: no cover
             raise JudgeUnavailable(
                 "the `anthropic` package is not installed; "
-                "run `pip install ionic-contracts[anthropic]` or use --no-llm"
+                "run `pip install ionic[anthropic]` or use --no-llm"
             ) from exc
         try:
             kwargs: dict[str, str] = {}
