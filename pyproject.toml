@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ionic-contracts"
+name = "ionic"
 dynamic = ["version"]
 description = "The compatibility layer for multi-agent systems. Register agent contracts, detect semantic breakages before they ship."
 requires-python = ">=3.11"
