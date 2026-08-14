@@ -1,0 +1,56 @@
+name: Feature request
+description: Propose an improvement that fits Ionic Essential.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Explain the user problem before prescribing an implementation. Please keep proposals within the MIT-licensed Ionic Essential scope.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and did not find an equivalent proposal.
+          required: true
+        - label: This proposal belongs in Ionic Essential and does not require commercial-only control-plane features.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Who is affected, what are they trying to do, and why is the current behavior insufficient?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful outcome. Implementation ideas are welcome but optional.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Note existing workflows, workarounds, or simpler designs you evaluated.
+
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Privacy and compatibility impact
+      description: Identify new network use, stored data, credentials, dependencies, provider behavior, or compatibility risks. Write `None` when not applicable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add mockups, examples, or related links without including sensitive information.
