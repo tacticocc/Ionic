@@ -1,0 +1,191 @@
+{
+  "name": "ionic-essential-desktop",
+  "productName": "Ionic Essential",
+  "ionicEdition": "essential",
+  "version": "0.6.1",
+  "description": "Desktop client for Ionic — register agent contracts, detect semantic breakages before they ship.",
+  "license": "MIT",
+  "author": "Tactico Technologies",
+  "homepage": "https://github.com/tacticocc/Ionic",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tacticocc/Ionic.git"
+  },
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "postinstall": "node node_modules/electron/install.js",
+    "start": "electron .",
+    "test": "node --test test/*.test.mjs",
+    "build:cli": "node scripts/build-cli.mjs",
+    "prepare:nsis": "node scripts/prepare-nsis-script.mjs",
+    "dist": "npm run build:cli && npm run prepare:nsis && electron-builder --publish never",
+    "dist:win": "npm run build:cli && npm run prepare:nsis && electron-builder --win --x64 --publish never",
+    "dist:win:signed": "npm run build:cli && npm run prepare:nsis && electron-builder --win --x64 --publish never --config.forceCodeSigning=true && npm run release:verify:win",
+    "dist:mac": "npm run build:cli && electron-builder --mac --x64 --publish never",
+    "dist:linux": "npm run build:cli && electron-builder --linux --x64 --publish never",
+    "release:stage": "node scripts/stage-release-artifacts.mjs",
+    "release:verify:nsis": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-nsis-contents.ps1 -InstallerPattern \"dist/essential/Ionic-Essential-Setup-{version}-x64.exe\" -AppRoot \"dist/essential/win-unpacked\"",
+    "release:verify:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-windows-signatures.ps1 -AppRoot dist/essential/win-unpacked -ExpectedProductName \"Ionic Essential\" -ExpectedPublisherPattern \"Tactico Technologies\" && npm run release:verify:nsis"
+  },
+  "devDependencies": {
+    "electron": "^43.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.tactico.ionic.essential",
+    "productName": "Ionic Essential",
+    "executableName": "Ionic Essential",
+    "artifactName": "Ionic-Essential-${version}-${arch}.${ext}",
+    "copyright": "Copyright © 2026 Tactico Technologies and Ionic contributors",
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    },
+    "directories": {
+      "output": "dist/essential",
+      "buildResources": "../brand"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!src/legal/licenses/**/*",
+      "!src/legal/sources/**/*",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "build/essential/cli/${os}-${arch}/ionic",
+        "to": "ionic"
+      },
+      {
+        "from": "../EULA.txt",
+        "to": "legal/EULA.txt"
+      },
+      {
+        "from": "../LICENSE",
+        "to": "legal/IONIC-MIT-LICENSE.txt"
+      },
+      {
+        "from": "../THIRD-PARTY-NOTICES.txt",
+        "to": "legal/THIRD-PARTY-NOTICES.txt"
+      },
+      {
+        "from": "build/essential/legal/licenses",
+        "to": "legal/licenses"
+      },
+      {
+        "from": "src/renderer/fonts/INTER-OFL-1.1.txt",
+        "to": "legal/licenses/Inter-4.1/OFL-1.1.txt"
+      },
+      {
+        "from": "src/renderer/fonts/MATERIAL-SYMBOLS-APACHE-2.0.txt",
+        "to": "legal/licenses/Material-Symbols/Apache-2.0.txt"
+      },
+      {
+        "from": "src/legal/licenses/NSIS-3.0.4.1/COPYING.txt",
+        "to": "legal/licenses/NSIS-3.0.4.1/COPYING.txt"
+      },
+      {
+        "from": "src/legal/licenses/NSIS-plugins",
+        "to": "legal/licenses/NSIS-plugins"
+      },
+      {
+        "from": "src/legal/sources/NSIS-plugins",
+        "to": "legal/sources/NSIS-plugins"
+      },
+      {
+        "from": "node_modules/electron/dist/LICENSE",
+        "to": "legal/licenses/Electron/LICENSE"
+      },
+      {
+        "from": "node_modules/electron/dist/LICENSES.chromium.html",
+        "to": "legal/licenses/Electron/LICENSES.chromium.html"
+      }
+    ],
+    "extraMetadata": {
+      "main": "src/main.js",
+      "ionicEdition": "essential"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "Ionic Icon BG.png",
+      "darkModeSupport": true
+    },
+    "dmg": {
+      "license": "../EULA.txt"
+    },
+    "win": {
+      "signtoolOptions": {
+        "publisherName": "Tactico Technologies"
+      },
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "Ionic Icon BG.png"
+    },
+    "nsis": {
+      "artifactName": "Ionic-Essential-Setup-${version}-${arch}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "packElevateHelper": false,
+      "license": "../EULA.txt",
+      "menuCategory": "Tactico Technologies",
+      "include": "nsis/native-shell.nsh"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "Ionic Icon BG.png",
+      "category": "Development",
+      "synopsis": "Agent contract compatibility",
+      "description": "Register agent contracts, see how they depend on each other, and detect breaking changes before they ship. Zero telemetry."
+    },
+    "appImage": {
+      "license": "../EULA.txt"
+    }
+  }
+}

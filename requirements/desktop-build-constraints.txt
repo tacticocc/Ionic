@@ -1,0 +1,67 @@
+# Reviewed Python environment for Ionic Essential Desktop 0.6.1 sidecars.
+#
+# CI exports this file through PIP_CONSTRAINT before installing .[dev], and
+# build_cli.py records its SHA-256 in the managed-engine manifest. Update the
+# complete set deliberately after dependency, license, and runtime review.
+# Cross-platform pins may be absent on a host when their package marker does not apply.
+altgraph==0.17.5
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anthropic==0.121.0
+anyio==4.14.2
+attrs==26.1.0
+certifi==2026.7.22
+cffi==2.1.1
+click==8.4.2
+colorama==0.4.6
+cryptography==50.0.0
+distro==1.9.0
+docstring-parser==0.18.0
+h11==0.16.0
+hatchling==1.32.0
+httpcore==1.0.9
+httpcore2==2.10.0
+httpx==0.28.1
+httpx2==2.10.0
+idna==3.18
+iniconfig==2.3.0
+jiter==0.16.0
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+markdown-it-py==4.2.0
+macholib==1.16.4
+mcp==2.0.0
+mcp-types==2.0.0
+mdurl==0.1.2
+opentelemetry-api==1.44.0
+packaging==26.3
+pathspec==1.1.1
+pefile==2024.8.26
+pluggy==1.6.0
+pydantic==2.13.4
+pydantic-core==2.46.4
+pygments==2.20.0
+pyinstaller==6.22.0
+pyinstaller-hooks-contrib==2026.6
+pyjwt==2.13.0
+pycparser==3.0
+pytest==9.1.1
+python-multipart==0.0.32
+pywin32==312
+pywin32-ctypes==0.2.3
+pyyaml==6.0.3
+referencing==0.37.0
+rich==15.0.0
+rpds-py==2026.6.3
+setuptools==84.0.0
+shellingham==1.5.4
+sniffio==1.3.1
+sse-starlette==3.4.8
+starlette==1.6.0
+tomlkit==0.15.1
+trove-classifiers==2026.6.1.19
+truststore==0.10.4
+typer==0.27.1
+typing-extensions==4.16.0
+typing-inspection==0.4.4
+uvicorn==0.52.1

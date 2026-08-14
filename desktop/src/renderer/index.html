@@ -1,0 +1,1301 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self';"
+    />
+    <title>Ionic</title>
+    <script src="theme-init.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <section
+      id="legal"
+      class="legal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="legal-title"
+      aria-describedby="legal-summary"
+    >
+      <div class="legal-shell">
+        <header class="legal-head">
+          <div class="setup-heading">
+            <img
+              class="product-logo product-logo-small"
+              src="assets/ionic-icon-bg.png"
+              width="30"
+              height="30"
+              alt=""
+              aria-hidden="true"
+            />
+            <span id="legal-kicker" class="setup-kicker">First launch</span>
+          </div>
+          <button id="legal-close" class="quiet-action hidden" type="button" aria-label="Close legal documents">
+            <span class="material-symbol button-icon" aria-hidden="true">close</span>
+            <span>Close</span>
+          </button>
+        </header>
+
+        <div class="legal-intro">
+          <h1 id="legal-title" tabindex="-1">Before you continue</h1>
+          <p id="legal-summary">
+            Review the terms for the official Ionic Desktop distribution and related services
+            published by Tactico Technologies (Publishers).
+          </p>
+          <p class="legal-open-source-note">
+            The Ionic CLI and source remain available under the MIT License if you decline.
+          </p>
+        </div>
+
+        <nav class="legal-tabs" aria-label="Legal documents">
+          <button class="legal-tab" type="button" data-legal-document="eula" aria-current="page">
+            Desktop EULA
+          </button>
+          <button class="legal-tab" type="button" data-legal-document="mit">
+            MIT License
+          </button>
+          <button class="legal-tab" type="button" data-legal-document="third-party">
+            Open Source Licenses
+          </button>
+        </nav>
+
+        <div
+          id="legal-document"
+          class="legal-document"
+          tabindex="0"
+          role="region"
+          aria-label="Desktop EULA text"
+        >
+          <pre id="legal-text">Loading agreement&hellip;</pre>
+        </div>
+        <section
+          id="open-source-licenses"
+          class="open-source-licenses hidden"
+          aria-labelledby="open-source-licenses-title"
+        >
+          <header class="open-source-head">
+            <div>
+              <h2 id="open-source-licenses-title">Open Source Licenses</h2>
+              <p>Exact license texts packaged with this Ionic Desktop build.</p>
+            </div>
+            <button id="open-source-refresh" class="quiet-action" type="button" disabled>
+              <span class="material-symbol button-icon" aria-hidden="true">refresh</span>
+              <span>Refresh</span>
+            </button>
+          </header>
+          <label class="open-source-search" for="open-source-filter">
+            <span class="sr-only">Search packaged open source licenses</span>
+            <span class="material-symbol" aria-hidden="true">search</span>
+            <input id="open-source-filter" type="search" placeholder="Search component, version, license, or source" autocomplete="off" />
+          </label>
+          <p id="open-source-list-status" class="open-source-list-status" role="status" aria-live="polite">
+            Loading packaged licenses&hellip;
+          </p>
+          <div class="open-source-browser">
+            <div id="open-source-list" class="open-source-list" role="list" aria-label="Packaged open source components"></div>
+            <article id="open-source-detail" class="open-source-detail" tabindex="0" aria-label="Packaged license text">
+              <div id="open-source-detail-empty" class="open-source-empty">
+                <span class="material-symbol" aria-hidden="true">license</span>
+                <strong id="open-source-detail-title">Choose a component</strong>
+                <span>Select a packaged component to read its exact included license text.</span>
+              </div>
+              <div id="open-source-detail-content" class="hidden">
+                <header class="open-source-detail-head">
+                  <div>
+                    <h3 id="open-source-license-name">Component</h3>
+                    <span id="open-source-license-version">Version unavailable</span>
+                  </div>
+                  <span id="open-source-license-type" class="open-source-license-type">License unavailable</span>
+                </header>
+                <dl class="open-source-metadata">
+                  <div><dt>Source</dt><dd id="open-source-license-source">Unavailable</dd></div>
+                  <div id="open-source-license-document-row" class="hidden"><dt>Document</dt><dd id="open-source-license-document">Unavailable</dd></div>
+                </dl>
+                <pre id="open-source-license-text">Choose a component to read its license.</pre>
+              </div>
+            </article>
+          </div>
+          <p id="open-source-error" class="legal-error open-source-error hidden" role="alert"></p>
+          <p id="open-source-live" class="sr-only" role="status" aria-live="polite"></p>
+        </section>
+        <p id="legal-error" class="legal-error hidden" role="alert"></p>
+
+        <footer id="legal-consent" class="legal-consent">
+          <label class="legal-check">
+            <input id="legal-agree" type="checkbox" />
+            <span>I have read and agree to the Ionic Desktop EULA.</span>
+          </label>
+          <div class="legal-actions">
+            <button id="legal-decline" class="ghost" type="button">
+              <span class="material-symbol button-icon" aria-hidden="true">logout</span>
+              <span>Decline &amp; quit</span>
+            </button>
+            <button id="legal-accept" class="primary" type="button" disabled>
+              <span class="material-symbol button-icon" aria-hidden="true">check</span>
+              <span>Accept &amp; continue</span>
+            </button>
+          </div>
+        </footer>
+        <footer id="legal-recovery" class="legal-recovery hidden">
+          <p>Terms must be verified before Ionic Desktop can start.</p>
+          <button id="legal-retry" class="primary" type="button">
+            <span class="material-symbol button-icon" aria-hidden="true">refresh</span>
+            <span>Try again</span>
+          </button>
+        </footer>
+      </div>
+    </section>
+
+    <div id="boot" class="boot" role="status" aria-live="polite">
+      <img
+        class="product-logo product-logo-boot"
+        src="assets/ionic-icon-bg.png"
+        width="42"
+        height="42"
+        alt=""
+        aria-hidden="true"
+      />
+      <div>
+        <strong>Ionic</strong>
+        <span>Connecting to the local engine&hellip;</span>
+      </div>
+    </div>
+
+    <section id="setup" class="setup hidden" aria-labelledby="setup-title">
+      <div class="setup-card">
+        <div class="setup-heading">
+          <img
+            class="product-logo product-logo-small"
+            src="assets/ionic-icon-bg.png"
+            width="30"
+            height="30"
+            alt=""
+            aria-hidden="true"
+          />
+          <span class="setup-kicker">Engine recovery</span>
+        </div>
+        <h1 id="setup-title">Repair the Ionic engine</h1>
+        <p id="setup-message" class="setup-lead">
+          Ionic Desktop could not verify its included managed engine. Restore that connection,
+          choose another Ionic executable, or retry the check.
+        </p>
+
+        <div class="setup-actions">
+          <button id="setup-managed" class="primary" type="button">
+            <span class="material-symbol button-icon" aria-hidden="true">verified</span>
+            <span>Use managed engine</span>
+          </button>
+          <button id="setup-choose" class="ghost" type="button">
+            <span class="material-symbol button-icon" aria-hidden="true">folder_open</span>
+            <span>Choose executable&hellip;</span>
+          </button>
+          <button id="setup-retry" class="quiet-action" type="button">
+            <span class="material-symbol button-icon" aria-hidden="true">refresh</span>
+            <span>Retry</span>
+          </button>
+        </div>
+
+        <details>
+          <summary>Locations checked</summary>
+          <pre id="setup-searched" class="dim"></pre>
+        </details>
+        <p class="privacy-note"><span class="status-dot ok"></span>No telemetry. The desktop wrapper never phones home.</p>
+      </div>
+    </section>
+
+    <div id="app" class="app hidden">
+      <aside id="workspace-sidebar" class="sidebar" aria-label="Ionic workspace">
+        <div class="brand">
+          <img
+            class="product-logo product-logo-sidebar"
+            src="assets/ionic-icon-bg.png"
+            width="32"
+            height="32"
+            alt=""
+            aria-hidden="true"
+          />
+          <div>
+            <div class="brand-name">Ionic</div>
+            <div class="brand-meta">
+              <span class="brand-sub">contract compatibility</span>
+              <span id="product-edition" class="edition-badge" hidden></span>
+            </div>
+          </div>
+        </div>
+
+        <nav class="primary-nav" aria-label="Main views">
+          <button
+            class="nav-item active"
+            type="button"
+            data-view="contracts"
+            aria-controls="view-contracts"
+            aria-label="Contracts"
+            aria-current="page"
+          >
+            <span class="material-symbol nav-icon" aria-hidden="true">description</span>
+            <span>Contracts</span>
+          </button>
+          <button
+            class="nav-item"
+            type="button"
+            data-view="repositories"
+            aria-controls="view-repositories"
+            aria-label="Repositories"
+          >
+            <span class="material-symbol nav-icon" aria-hidden="true">folder_copy</span>
+            <span>Repositories</span>
+          </button>
+          <button
+            class="nav-item"
+            type="button"
+            data-view="graph"
+            aria-controls="view-graph"
+            aria-label="Dependency graph"
+          >
+            <span class="material-symbol nav-icon" aria-hidden="true">account_tree</span>
+            <span>Graph</span>
+          </button>
+          <button
+            class="nav-item"
+            type="button"
+            data-view="check"
+            aria-controls="view-check"
+            aria-label="Compatibility check"
+          >
+            <span class="material-symbol nav-icon" aria-hidden="true">fact_check</span>
+            <span>Check</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-foot">
+          <button id="btn-settings" class="settings-launch" type="button" aria-label="Open settings">
+            <span class="material-symbol settings-launch-icon" aria-hidden="true">settings</span>
+            <span class="settings-launch-label">Settings</span>
+            <kbd>Ctrl ,</kbd>
+          </button>
+          <div class="sidebar-label">Workspace</div>
+          <button id="btn-register" class="ghost" type="button">
+            <span class="material-symbol button-icon" aria-hidden="true">create_new_folder</span>
+            <span>Register folder&hellip;</span>
+          </button>
+          <button id="btn-registry" class="ghost" type="button">
+            <span class="material-symbol button-icon" aria-hidden="true">database</span>
+            <span>Open registry&hellip;</span>
+          </button>
+          <div class="telemetry">
+            <span class="status-dot ok"></span>
+            <span>telemetry: none</span>
+          </div>
+        </div>
+      </aside>
+
+      <div
+        id="workspace-resizer"
+        class="pane-resizer"
+        role="separator"
+        aria-label="Resize workspace navigation"
+        aria-controls="workspace-sidebar main-content"
+        aria-describedby="pane-resizer-instructions"
+        aria-orientation="vertical"
+        aria-valuemin="192"
+        aria-valuemax="360"
+        aria-valuenow="224"
+        tabindex="0"
+        title="Drag to resize. Double-click to reset."
+      ></div>
+
+      <main id="main-content" class="content">
+        <section
+          class="view active"
+          id="view-contracts"
+          aria-labelledby="contracts-title"
+          tabindex="-1"
+        >
+          <header class="view-head">
+            <div>
+              <h1 id="contracts-title">Contracts</h1>
+              <p class="dim">The promises agents make to the rest of your system.</p>
+            </div>
+            <p id="contracts-count" class="view-meta dim" aria-live="polite"></p>
+          </header>
+
+          <div class="split">
+            <div id="contract-rail" class="contract-rail">
+              <label class="search-field" for="contract-filter">
+                <span class="sr-only">Filter contracts</span>
+                <input
+                  id="contract-filter"
+                  type="search"
+                  placeholder="Filter contracts"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </label>
+              <ul
+                id="contract-list"
+                class="contract-list"
+                role="list"
+                aria-label="Registered contracts"
+              ></ul>
+            </div>
+            <div
+              id="contract-resizer"
+              class="pane-resizer pane-resizer-inset"
+              role="separator"
+              aria-label="Resize contract list"
+              aria-controls="contract-rail contract-detail"
+              aria-describedby="pane-resizer-instructions"
+              aria-orientation="vertical"
+              aria-valuemin="220"
+              aria-valuemax="480"
+              aria-valuenow="300"
+              tabindex="0"
+              title="Drag to resize. Double-click to reset."
+            ></div>
+            <article id="contract-detail" class="detail" aria-live="polite">
+              <div class="empty-state compact">
+                <strong>Choose a contract</strong>
+                <p>Inspect its inputs, outputs, tools, and dependencies.</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section
+          class="view"
+          id="view-repositories"
+          aria-labelledby="repositories-title"
+          tabindex="-1"
+          hidden
+        >
+          <header class="view-head repositories-head">
+            <div>
+              <h1 id="repositories-title">Repositories</h1>
+              <p class="dim">Scan local instruction files, review conflicts, then sync selected agents to the registry.</p>
+            </div>
+            <div class="workspace-actions">
+              <button id="repository-add" class="ghost compact-action" type="button">
+                <span class="material-symbol button-icon" aria-hidden="true">create_new_folder</span>
+                <span>Add repositories&hellip;</span>
+              </button>
+              <button id="workspace-scan" class="primary compact-action" type="button">
+                <span class="material-symbol button-icon" aria-hidden="true">document_scanner</span>
+                <span class="button-label">Scan workspace</span>
+                <span class="spinner hidden" aria-hidden="true"></span>
+              </button>
+            </div>
+          </header>
+
+          <p id="workspace-scan-status" class="workspace-scan-status dim" role="status" aria-live="polite"></p>
+
+          <div id="repositories-split" class="repositories-split">
+            <aside id="repository-rail" class="repository-rail" aria-label="Workspace repositories">
+              <label class="search-field" for="repository-filter">
+                <span class="sr-only">Filter repositories</span>
+                <input
+                  id="repository-filter"
+                  type="search"
+                  placeholder="Filter repositories"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </label>
+              <ul id="repository-list" class="repository-list" role="list"></ul>
+            </aside>
+
+            <div
+              id="repository-resizer"
+              class="pane-resizer pane-resizer-inset"
+              role="separator"
+              aria-label="Resize repository list"
+              aria-controls="repository-rail repository-results"
+              aria-describedby="pane-resizer-instructions"
+              aria-orientation="vertical"
+              aria-valuemin="220"
+              aria-valuemax="480"
+              aria-valuenow="300"
+              tabindex="0"
+              title="Drag to resize. Double-click to reset."
+            ></div>
+
+            <section
+              id="repository-results"
+              class="repository-results"
+              aria-labelledby="workspace-results-title"
+            >
+              <header class="repository-results-head">
+                <div>
+                  <h2 id="workspace-results-title" tabindex="-1">Local workspace</h2>
+                  <p id="workspace-summary" class="dim">Add repositories to begin. Saved repositories scan structurally at launch.</p>
+                </div>
+                <button id="workspace-sync" class="ghost compact-action" type="button" disabled>
+                  <span class="material-symbol button-icon" aria-hidden="true">sync</span>
+                  <span class="button-label">Sync selected</span>
+                  <span class="spinner hidden" aria-hidden="true"></span>
+                </button>
+              </header>
+
+              <div id="workspace-error" class="surface-error hidden" role="alert" tabindex="-1"></div>
+
+              <section
+                id="workspace-sync-review"
+                class="workspace-sync-review hidden"
+                aria-labelledby="workspace-sync-review-title"
+              >
+                <div>
+                  <h3 id="workspace-sync-review-title">Review registry update</h3>
+                  <p id="workspace-sync-review-summary"></p>
+                  <div id="workspace-sync-actions" class="workspace-sync-actions"></div>
+                  <p class="dim">This updates registry baselines. Ionic never edits your Markdown files.</p>
+                </div>
+                <div class="workspace-sync-review-actions">
+                  <button id="workspace-sync-cancel" class="quiet-action" type="button">Cancel</button>
+                  <button id="workspace-sync-apply" class="primary" type="button">
+                    <span class="material-symbol button-icon" aria-hidden="true">check</span>
+                    <span class="button-label">Apply sync</span>
+                    <span class="spinner hidden" aria-hidden="true"></span>
+                  </button>
+                </div>
+              </section>
+
+              <div id="workspace-results" class="workspace-results">
+                <div class="empty-state compact">
+                  <strong>No repositories yet</strong>
+                  <p>Add local repositories, then scan now or let Ionic run a local structural scan at the next launch. No files are watched or uploaded.</p>
+                  <button class="ghost empty-add-repositories" type="button">Add repositories&hellip;</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="view-graph" aria-labelledby="graph-title" tabindex="-1" hidden>
+          <header class="view-head">
+            <div>
+              <h1 id="graph-title">Dependency graph</h1>
+              <p class="dim">Arrows read left to right: an agent needs something from the next.</p>
+            </div>
+            <button id="graph-refresh" class="ghost compact-action" type="button">
+              <span class="material-symbol button-icon" aria-hidden="true">refresh</span>
+              <span>Refresh</span>
+            </button>
+          </header>
+          <div
+            id="graph-canvas"
+            class="graph-canvas"
+            aria-label="Agent dependency graph"
+            aria-describedby="graph-help"
+          >
+            <div class="empty-state">
+              <strong>No contracts registered</strong>
+              <p>Register a folder to map how your agents depend on one another.</p>
+              <button class="ghost empty-register" type="button">Register folder&hellip;</button>
+            </div>
+          </div>
+          <div class="graph-footer">
+            <p id="graph-help" class="graph-help dim">Focus a node to hear its dependency summary.</p>
+            <p id="graph-legend" class="legend"></p>
+          </div>
+        </section>
+
+        <section class="view" id="view-check" aria-labelledby="check-title" tabindex="-1" hidden>
+          <header class="view-head">
+            <div>
+              <h1 id="check-title">Compatibility check</h1>
+              <p class="dim">Compare a proposal with the registered baseline and its dependents.</p>
+            </div>
+          </header>
+
+          <form id="check-form" class="check-form">
+            <div class="field-grid">
+              <label class="field">
+                <span>Registered baseline</span>
+                <select id="check-contract" required></select>
+              </label>
+
+              <label class="field proposal-field">
+                <span>Proposed contract</span>
+                <div class="file-row">
+                  <input
+                    id="check-against"
+                    type="text"
+                    placeholder="Use the recorded source file"
+                    readonly
+                  />
+                  <button type="button" id="check-browse" class="ghost">
+                    <span class="material-symbol button-icon" aria-hidden="true">folder_open</span>
+                    <span>Browse&hellip;</span>
+                  </button>
+                  <button type="button" id="check-clear" class="quiet-action">
+                    <span class="material-symbol button-icon" aria-hidden="true">close</span>
+                    <span>Clear</span>
+                  </button>
+                </div>
+              </label>
+            </div>
+
+            <fieldset class="options">
+              <legend>Analysis options</legend>
+              <label class="inline">
+                <input type="checkbox" id="check-llm" />
+                <span>
+                  Semantic review
+                  <em id="check-llm-access" class="dim">Sends contracts to your configured API provider</em>
+                </span>
+              </label>
+              <label class="inline">
+                <input type="checkbox" id="check-transitive" />
+                <span>Include indirect dependents</span>
+              </label>
+              <label class="inline threshold-field">
+                <span>Block at</span>
+                <select id="check-failon">
+                  <option value="critical">critical</option>
+                  <option value="high" selected>high</option>
+                  <option value="medium">medium</option>
+                  <option value="low">low</option>
+                  <option value="info">info</option>
+                </select>
+              </label>
+            </fieldset>
+
+            <div class="check-actions">
+              <button type="submit" class="primary" id="check-run">
+                <span class="material-symbol button-icon" aria-hidden="true">play_arrow</span>
+                <span class="button-label">Run check</span>
+                <span class="spinner hidden" aria-hidden="true"></span>
+              </button>
+              <p id="check-progress" class="check-progress dim" role="status" aria-live="polite"></p>
+            </div>
+          </form>
+
+          <div id="check-result" class="result" aria-live="polite"></div>
+        </section>
+      </main>
+    </div>
+
+    <p id="pane-resizer-instructions" class="sr-only">
+      Drag to resize. Use the left and right arrow keys for precise adjustments,
+      Shift with an arrow key for larger adjustments, Home or End for limits, and Enter to reset.
+    </p>
+
+    <!-- SETTINGS DIRECTION
+      THESIS: a quiet operator console where model and engine decisions feel explicit, local, and reversible.
+      OWN WORLD: neutral near-black rails, electric-cyan identity signals, nearly neutral surfaces, dense contract language, and measured status feedback.
+      STORY: choose a provider, tune analysis, then manage the active registry and verified local engine.
+      FIRST VIEWPORT: back/search/category rail at left; the active section title and highest-value controls at right.
+      FORM: restrained two-pane settings shell with grouped rows, right-aligned controls, and Inter 4.1 throughout.
+    -->
+    <section id="settings" class="settings-page hidden" aria-labelledby="settings-title">
+      <aside id="settings-sidebar" class="settings-sidebar" aria-label="Settings navigation">
+        <button id="settings-back" class="settings-back" type="button">
+          <span class="material-symbol" aria-hidden="true">arrow_back</span>
+          <span>Back to workspace</span>
+        </button>
+
+        <label class="settings-search" for="settings-filter">
+          <span class="sr-only">Search settings</span>
+          <span class="material-symbol settings-search-icon" aria-hidden="true">search</span>
+          <input
+            id="settings-filter"
+            type="search"
+            placeholder="Search settings"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+
+        <nav class="settings-nav" aria-label="Settings categories">
+          <button class="settings-nav-item" type="button" data-settings-category="appearance">
+            <span class="material-symbol settings-nav-icon" aria-hidden="true">palette</span>
+            <span>Appearance</span>
+          </button>
+          <button class="settings-nav-item active" type="button" data-settings-category="ai" aria-current="page">
+            <span class="material-symbol settings-nav-icon" aria-hidden="true">smart_toy</span>
+            <span>AI &amp; models</span>
+          </button>
+          <button class="settings-nav-item" type="button" data-settings-category="analysis">
+            <span class="material-symbol settings-nav-icon" aria-hidden="true">tune</span>
+            <span>Analysis</span>
+          </button>
+          <button class="settings-nav-item" type="button" data-settings-category="workspace">
+            <span class="material-symbol settings-nav-icon" aria-hidden="true">folder_open</span>
+            <span>Workspace</span>
+          </button>
+          <button class="settings-nav-item" type="button" data-settings-category="engine">
+            <span class="material-symbol settings-nav-icon" aria-hidden="true">memory</span>
+            <span>Engine</span>
+          </button>
+          <button class="settings-nav-item" type="button" data-settings-category="legal">
+            <span class="material-symbol settings-nav-icon" aria-hidden="true">gavel</span>
+            <span>Legal</span>
+          </button>
+        </nav>
+
+        <p class="settings-sidebar-note">
+          Preferences stay on this device. Ionic sends no telemetry.
+        </p>
+      </aside>
+
+      <div
+        id="settings-resizer"
+        class="pane-resizer"
+        role="separator"
+        aria-label="Resize settings navigation"
+        aria-controls="settings-sidebar settings-content"
+        aria-describedby="pane-resizer-instructions"
+        aria-orientation="vertical"
+        aria-valuemin="216"
+        aria-valuemax="360"
+        aria-valuenow="272"
+        tabindex="0"
+        title="Drag to resize. Double-click to reset."
+      ></div>
+
+      <main id="settings-content" class="settings-content" tabindex="-1">
+        <div id="settings-no-results" class="settings-no-results hidden" role="status">
+          <strong>No matching settings</strong>
+          <p>Try a theme, provider, connection, workspace, or engine term.</p>
+        </div>
+
+        <div id="settings-load-error" class="settings-load-error hidden" role="alert">
+          <span>
+            <strong>Settings could not be refreshed</strong>
+            <span id="settings-load-error-message">The latest preferences are unavailable.</span>
+          </span>
+          <button id="settings-retry" class="ghost" type="button">
+            <span class="material-symbol button-icon" aria-hidden="true">refresh</span>
+            <span>Retry</span>
+          </button>
+        </div>
+
+        <section
+          class="settings-section"
+          id="settings-appearance"
+          data-settings-section="appearance"
+          aria-labelledby="settings-appearance-title"
+          hidden
+        >
+          <header class="settings-section-head">
+            <div>
+              <h1 id="settings-appearance-title">Appearance</h1>
+              <p>Choose the contrast and surface depth that fits your workspace.</p>
+            </div>
+            <span id="settings-appearance-status" class="settings-save-state" role="status" aria-live="polite"></span>
+          </header>
+
+          <div class="settings-group appearance-group" data-setting-search="appearance theme color light dark oled black contrast palette custom developer css token hex">
+            <fieldset class="theme-picker">
+              <legend>Interface theme</legend>
+              <p class="theme-picker-help">Brand cyan, neutral rails, and restrained surface depth. Changes apply across the workspace, settings, and first-launch screens.</p>
+              <div class="theme-options">
+                <label class="theme-option" data-theme-preview="light">
+                  <input id="setting-theme-light" type="radio" name="appearance-theme" value="light" checked />
+                  <span class="theme-swatch" aria-hidden="true">
+                    <span class="theme-swatch-sidebar">
+                      <span></span><span></span><span></span>
+                    </span>
+                    <span class="theme-swatch-content">
+                      <span></span><span></span><span></span>
+                    </span>
+                  </span>
+                  <span class="theme-option-copy">
+                    <strong><span class="material-symbol" aria-hidden="true">light_mode</span>Light</strong>
+                    <span>Default &middot; near-neutral</span>
+                  </span>
+                </label>
+
+                <label class="theme-option" data-theme-preview="dark">
+                  <input id="setting-theme-dark" type="radio" name="appearance-theme" value="dark" />
+                  <span class="theme-swatch" aria-hidden="true">
+                    <span class="theme-swatch-sidebar">
+                      <span></span><span></span><span></span>
+                    </span>
+                    <span class="theme-swatch-content">
+                      <span></span><span></span><span></span>
+                    </span>
+                  </span>
+                  <span class="theme-option-copy">
+                    <strong><span class="material-symbol" aria-hidden="true">dark_mode</span>Dark</strong>
+                    <span>Neutral charcoal &middot; cyan</span>
+                  </span>
+                </label>
+
+                <label class="theme-option" data-theme-preview="oled">
+                  <input id="setting-theme-oled" type="radio" name="appearance-theme" value="oled" />
+                  <span class="theme-swatch" aria-hidden="true">
+                    <span class="theme-swatch-sidebar">
+                      <span></span><span></span><span></span>
+                    </span>
+                    <span class="theme-swatch-content">
+                      <span></span><span></span><span></span>
+                    </span>
+                  </span>
+                  <span class="theme-option-copy">
+                    <strong><span class="material-symbol" aria-hidden="true">contrast</span>OLED Dark</strong>
+                    <span>True black &middot; dark rail</span>
+                  </span>
+                </label>
+
+                <label class="theme-option" data-theme-preview="custom">
+                  <input id="setting-theme-custom" type="radio" name="appearance-theme" value="custom" />
+                  <span class="theme-swatch" aria-hidden="true">
+                    <span class="theme-swatch-sidebar">
+                      <span></span><span></span><span></span>
+                    </span>
+                    <span class="theme-swatch-content">
+                      <span></span><span></span><span></span>
+                    </span>
+                  </span>
+                  <span class="theme-option-copy">
+                    <strong><span class="material-symbol" aria-hidden="true">code</span>Custom</strong>
+                    <span>Developer tokens</span>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+
+            <div id="custom-theme-editor" class="custom-theme-editor hidden">
+              <header class="custom-theme-head">
+                <span>
+                  <strong>Developer theme</strong>
+                  <span>Edit seven semantic tokens. Ionic derives interaction and status colors from them.</span>
+                </span>
+                <label class="custom-theme-base">
+                  <span>Base mode</span>
+                  <select id="custom-theme-base">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="oled">OLED Dark</option>
+                  </select>
+                </label>
+              </header>
+
+              <p class="custom-theme-guidance">
+                Changing the base loads Ionic&rsquo;s accessible starter palette. Hex values must keep text, controls, and focus indicators readable. Imported and exported JSON stays local and contains only these palette tokens.
+              </p>
+
+              <div class="custom-theme-grid">
+                <div class="custom-color-field" data-custom-token="canvas">
+                  <span><strong>Canvas</strong><code>--canvas</code></span>
+                  <span class="custom-color-control">
+                    <input type="color" value="#F8F8F6" aria-label="Canvas color picker" />
+                    <input type="text" value="#F8F8F6" inputmode="text" maxlength="7" spellcheck="false" aria-label="Canvas hex color" />
+                  </span>
+                </div>
+                <div class="custom-color-field" data-custom-token="sidebar">
+                  <span><strong>Sidebar</strong><code>--sidebar</code></span>
+                  <span class="custom-color-control">
+                    <input type="color" value="#F3F4F2" aria-label="Sidebar color picker" />
+                    <input type="text" value="#F3F4F2" inputmode="text" maxlength="7" spellcheck="false" aria-label="Sidebar hex color" />
+                  </span>
+                </div>
+                <div class="custom-color-field" data-custom-token="surface">
+                  <span><strong>Surface</strong><code>--surface</code></span>
+                  <span class="custom-color-control">
+                    <input type="color" value="#FFFFFF" aria-label="Surface color picker" />
+                    <input type="text" value="#FFFFFF" inputmode="text" maxlength="7" spellcheck="false" aria-label="Surface hex color" />
+                  </span>
+                </div>
+                <div class="custom-color-field" data-custom-token="border">
+                  <span><strong>Border</strong><code>--border</code></span>
+                  <span class="custom-color-control">
+                    <input type="color" value="#D8DDDE" aria-label="Border color picker" />
+                    <input type="text" value="#D8DDDE" inputmode="text" maxlength="7" spellcheck="false" aria-label="Border hex color" />
+                  </span>
+                </div>
+                <div class="custom-color-field" data-custom-token="text">
+                  <span><strong>Text</strong><code>--text</code></span>
+                  <span class="custom-color-control">
+                    <input type="color" value="#111820" aria-label="Text color picker" />
+                    <input type="text" value="#111820" inputmode="text" maxlength="7" spellcheck="false" aria-label="Text hex color" />
+                  </span>
+                </div>
+                <div class="custom-color-field" data-custom-token="muted">
+                  <span><strong>Muted text</strong><code>--muted</code></span>
+                  <span class="custom-color-control">
+                    <input type="color" value="#5E6A72" aria-label="Muted text color picker" />
+                    <input type="text" value="#5E6A72" inputmode="text" maxlength="7" spellcheck="false" aria-label="Muted text hex color" />
+                  </span>
+                </div>
+                <div class="custom-color-field" data-custom-token="accent">
+                  <span><strong>Accent</strong><code>--accent</code></span>
+                  <span class="custom-color-control">
+                    <input type="color" value="#006D82" aria-label="Accent color picker" />
+                    <input type="text" value="#006D82" inputmode="text" maxlength="7" spellcheck="false" aria-label="Accent hex color" />
+                  </span>
+                </div>
+              </div>
+
+              <div class="custom-theme-foot">
+                <p id="custom-theme-validation" class="custom-theme-validation" role="status" aria-live="polite"></p>
+                <div class="custom-theme-actions">
+                  <button id="custom-theme-import" class="ghost" type="button">
+                    <span class="material-symbol button-icon" aria-hidden="true">file_upload</span>
+                    <span class="button-label">Import JSON</span>
+                  </button>
+                  <button id="custom-theme-export" class="ghost" type="button">
+                    <span class="material-symbol button-icon" aria-hidden="true">file_download</span>
+                    <span class="button-label">Export JSON</span>
+                  </button>
+                  <button id="custom-theme-reset" class="ghost" type="button">
+                    <span class="material-symbol button-icon" aria-hidden="true">restart_alt</span>
+                    <span>Reset base</span>
+                  </button>
+                  <button id="custom-theme-save" class="primary" type="button" disabled>
+                    <span class="material-symbol button-icon" aria-hidden="true">save</span>
+                    <span class="button-label">Save custom theme</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="settings-section active"
+          id="settings-ai"
+          data-settings-section="ai"
+          aria-labelledby="settings-title"
+        >
+          <header class="settings-section-head">
+            <div>
+              <h1 id="settings-title">AI &amp; models</h1>
+              <p>Choose how optional semantic reviews are evaluated.</p>
+            </div>
+            <span id="settings-ai-status" class="settings-save-state" role="status" aria-live="polite"></span>
+          </header>
+
+          <div class="settings-group model-access-group" data-setting-search="api subscription model access billing vendor runtime">
+            <div class="setting-row model-access-row">
+              <span class="setting-copy">
+                <strong>Model access</strong>
+                <span id="model-access-description">Choose direct API billing or an approved provider-native runtime.</span>
+              </span>
+              <fieldset id="model-access-mode" class="model-access-switch" aria-describedby="model-access-description">
+                <legend class="sr-only">Model access mode</legend>
+                <label>
+                  <input type="radio" name="model-access-mode" value="api" />
+                  <span><span class="material-symbol" aria-hidden="true">key</span>API</span>
+                </label>
+                <label>
+                  <input type="radio" name="model-access-mode" value="subscription" />
+                  <span><span class="material-symbol" aria-hidden="true">verified_user</span>Subscription</span>
+                </label>
+              </fieldset>
+            </div>
+          </div>
+
+          <div id="api-provider-settings" class="settings-group ai-settings-group model-access-panel" data-model-access-panel="api">
+            <div class="setting-row provider-setting-row" data-setting-search="provider anthropic openai google gemini xai grok compatible ollama lm studio vllm none llm ai model">
+              <label class="setting-copy" for="setting-provider">
+                <strong>Provider</strong>
+                <span>Where semantic compatibility reviews run.</span>
+              </label>
+              <span class="setting-control-stack provider-control-stack">
+                <select id="setting-provider" aria-describedby="setting-provider-description">
+                  <option value="anthropic">Anthropic</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="google">Google Gemini</option>
+                  <option value="xai">SpaceXAI · Grok</option>
+                  <option value="local">OpenAI-compatible</option>
+                  <option value="none">None (structural only)</option>
+                </select>
+                <span id="setting-provider-description" class="provider-description">
+                  <span id="setting-provider-icon" class="material-symbol" aria-hidden="true">psychology</span>
+                  <span id="setting-provider-copy">Claude models through the Anthropic API.</span>
+                </span>
+              </span>
+            </div>
+
+            <label class="setting-row setting-row-input" data-provider-except="none" data-setting-search="model name free form identifier">
+              <span class="setting-copy">
+                <strong>Model</strong>
+                <span>Enter any model identifier supported by your provider.</span>
+              </span>
+              <span class="setting-control-stack">
+                <input id="setting-model" type="text" list="setting-model-presets" maxlength="200" placeholder="Model identifier" autocomplete="off" spellcheck="false" aria-describedby="setting-model-help setting-model-error" />
+                <datalist id="setting-model-presets"></datalist>
+                <span id="setting-model-help" class="setting-field-hint">Choose a preset or enter another provider model ID.</span>
+                <span id="setting-model-error" class="setting-field-warning error hidden" role="status"></span>
+              </span>
+            </label>
+
+            <label class="setting-row" data-provider-only="anthropic" data-setting-search="reasoning effort thinking low medium high xhigh max">
+              <span class="setting-copy">
+                <strong>Reasoning effort</strong>
+                <span>Leave automatic unless the selected model supports this control.</span>
+              </span>
+              <select id="setting-effort">
+                <option value="">Automatic</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="xhigh">Extra high</option>
+                <option value="max">Maximum</option>
+              </select>
+            </label>
+
+            <label class="setting-row setting-row-input" data-provider-except="none" data-setting-search="maximum max output token budget limit">
+              <span class="setting-copy">
+                <strong>Maximum output tokens</strong>
+                <span>Upper limit for a semantic review response.</span>
+              </span>
+              <span class="setting-control-stack">
+                <input id="setting-max-tokens" type="number" min="256" max="200000" step="1" inputmode="numeric" aria-describedby="setting-max-tokens-error" />
+                <span id="setting-max-tokens-error" class="setting-field-warning error hidden" role="status"></span>
+              </span>
+            </label>
+
+            <label class="setting-row setting-row-input" data-provider-only="local" data-setting-search="local base url endpoint ollama openai compatible server">
+              <span class="setting-copy">
+                <strong>Base URL</strong>
+                <span>Endpoint for Ollama, LM Studio, vLLM, or another compatible service.</span>
+              </span>
+              <span class="setting-control-stack">
+                <input id="setting-local-url" type="url" placeholder="http://localhost:11434/v1" autocomplete="url" spellcheck="false" aria-describedby="setting-local-url-warning setting-local-url-error" />
+                <span id="setting-local-url-error" class="setting-field-warning error hidden" role="status"></span>
+                <span id="setting-local-url-warning" class="setting-field-warning hidden" role="status"></span>
+              </span>
+            </label>
+
+            <div class="setting-row setting-credential" data-provider-except="none" data-setting-search="api key credential secret anthropic openai gemini google xai grok compatible endpoint">
+              <span class="setting-copy">
+                <strong id="credential-label">API key</strong>
+                <span id="credential-status">Checking saved credential&hellip;</span>
+              </span>
+              <div class="credential-controls">
+                <input id="credential-input" type="password" placeholder="Paste a new key" autocomplete="off" spellcheck="false" aria-label="New API key" aria-describedby="credential-status credential-message" disabled />
+                <button id="credential-save" class="ghost" type="button" aria-label="Save API key" disabled>
+                  <span class="material-symbol button-icon" aria-hidden="true">key</span><span>Save key</span>
+                </button>
+                <button id="credential-clear" class="quiet-action danger-action" type="button" aria-label="Remove saved API key" disabled>
+                  <span class="material-symbol button-icon" aria-hidden="true">delete</span><span>Remove</span>
+                </button>
+              </div>
+              <span id="credential-message" class="credential-message" role="status" aria-live="polite"></span>
+            </div>
+
+            <div class="setting-row setting-note" data-provider-only="none" data-setting-search="none disabled structural only privacy offline">
+              <span class="material-symbol setting-note-icon" aria-hidden="true">shield</span>
+              <span class="setting-copy">
+                <strong>Structural analysis only</strong>
+                <span>Semantic review is disabled. Contracts stay entirely within Ionic's local engine.</span>
+              </span>
+            </div>
+          </div>
+
+          <div id="subscription-provider-settings" class="settings-group subscription-provider-settings model-access-panel" data-model-access-panel="subscription" hidden>
+            <div class="subscription-mode-intro">
+              <span class="material-symbol" aria-hidden="true">security</span>
+              <span>
+                <strong>Provider-native access only</strong>
+                <span>Ionic delegates through an official local runtime. It never reads browser cookies or turns a subscription into an API key.</span>
+              </span>
+            </div>
+
+            <fieldset id="subscription-runtime-selection" class="subscription-provider-list" aria-describedby="subscription-runtime-selection-help">
+              <legend class="sr-only">Subscription runtime</legend>
+              <label class="subscription-provider-row" data-model-runtime-id="openai-codex" data-setting-search="openai codex chatgpt subscription runtime app-server capability gated">
+                <input class="subscription-runtime-radio" type="radio" name="subscription-runtime" value="openai-codex" />
+                <span class="material-symbol subscription-provider-icon" aria-hidden="true">terminal</span>
+                <span class="subscription-provider-copy">
+                  <strong>ChatGPT / Codex review</strong>
+                  <span>Official app-server support is conditional: sign-in and the model catalog may work, but review stays unavailable unless the installed app-server proves Ionic's restricted read-only boundary.</span>
+                  <span class="subscription-provider-detail" data-model-runtime-field="detail">Checking this device&hellip;</span>
+                </span>
+                <span class="subscription-provider-state checking" data-model-runtime-field="state">Checking&hellip;</span>
+              </label>
+
+              <label class="subscription-provider-row" data-model-runtime-id="xai-grok-build" data-setting-search="xai spacexai grok build subscription acp headless oauth supported">
+                <input class="subscription-runtime-radio" type="radio" name="subscription-runtime" value="xai-grok-build" />
+                <span class="material-symbol subscription-provider-icon" aria-hidden="true">orbit</span>
+                <span class="subscription-provider-copy">
+                  <strong>Grok Build</strong>
+                  <span>Supported through the official Grok Build ACP or headless runtime and its subscription sign-in.</span>
+                  <span class="subscription-provider-detail" data-model-runtime-field="detail">Checking this device&hellip;</span>
+                </span>
+                <span class="subscription-provider-state checking" data-model-runtime-field="state">Checking&hellip;</span>
+              </label>
+            </fieldset>
+
+            <section class="subscription-runtime-config" data-subscription-provider="openai-codex" data-subscription-config-provider="openai-codex" aria-labelledby="codex-review-title">
+              <header class="subscription-config-head">
+                <span>
+                  <strong id="codex-review-title">Codex-powered semantic reviewer</strong>
+                  <span>This is a bounded structured review, not a full Codex workspace agent.</span>
+                </span>
+                <button class="quiet-action" type="button" data-subscription-action="check-status">
+                  <span class="material-symbol button-icon" aria-hidden="true">sync</span><span>Check sign-in</span>
+                </button>
+              </header>
+              <div class="subscription-permission">
+                <span class="material-symbol" aria-hidden="true">policy</span>
+                <span>
+                  <strong data-subscription-disclosure-field="heading">Allow Ionic to use your ChatGPT / Codex subscription?</strong>
+                  <span data-subscription-disclosure-field="purpose">Optional semantic compatibility reviews that you start in Ionic.</span>
+                  <span data-subscription-disclosure-field="authentication">OpenAI's official local Codex runtime owns sign-in and tokens. Ionic never receives them.</span>
+                  <strong>Review data sent</strong>
+                  <ul data-subscription-disclosure-list="sends"><li>Loading the current disclosure&hellip;</li></ul>
+                  <strong>Local boundary</strong>
+                  <ul data-subscription-disclosure-list="boundary"><li>Loading the current disclosure&hellip;</li></ul>
+                  <span data-subscription-disclosure-field="timing">Linking does not enable semantic review.</span>
+                  <span>This is an Ionic compatibility review delegated to Codex. It is not the Codex app and grants no general workspace-agent permission.</span>
+                </span>
+              </div>
+              <label class="subscription-consent-check">
+                <input type="checkbox" data-subscription-consent="openai-codex" />
+                <span>Allow this data to be sent for semantic reviews I start on this device.</span>
+              </label>
+              <p class="runtime-auth-status" data-subscription-field="status" role="status" aria-live="polite">Authentication not inspected</p>
+              <div class="runtime-auth-actions" role="group" aria-label="ChatGPT and Codex subscription actions">
+                <button class="primary" type="button" data-subscription-action="connect-browser" disabled><span class="material-symbol button-icon" aria-hidden="true">open_in_browser</span><span>Sign in with ChatGPT</span></button>
+                <button class="ghost" type="button" data-subscription-action="connect-device" disabled><span class="material-symbol button-icon" aria-hidden="true">devices</span><span>Use device code</span></button>
+                <button class="quiet-action danger-action" type="button" data-subscription-action="disconnect" disabled><span class="material-symbol button-icon" aria-hidden="true">logout</span><span>Sign out of Ionic's Codex profile</span></button>
+              </div>
+              <div class="subscription-device-flow hidden" data-subscription-field="device-flow" role="region" aria-label="ChatGPT device authorization">
+                <span data-subscription-field="device-instruction">Enter this code on the authorization page:</span>
+                <code data-subscription-field="device-code">&mdash;</code>
+                <div>
+                  <a class="quiet-action hidden" data-subscription-field="verification-link" href="#" target="_blank" rel="noreferrer"><span class="material-symbol button-icon" aria-hidden="true">open_in_new</span><span>Open sign-in page</span></a>
+                  <button class="quiet-action" type="button" data-subscription-action="copy-code"><span class="material-symbol button-icon" aria-hidden="true">content_copy</span><span>Copy code</span></button>
+                  <button class="quiet-action danger-action" type="button" data-subscription-action="cancel-login"><span class="material-symbol button-icon" aria-hidden="true">close</span><span>Cancel</span></button>
+                </div>
+              </div>
+              <div class="setting-row subscription-model-row">
+                <label class="setting-copy" for="codex-subscription-model"><strong>Model</strong><span>Loaded from the models available to your Codex session.</span></label>
+                <span class="subscription-model-controls">
+                  <select id="codex-subscription-model" data-subscription-field="model" disabled><option value="">Runtime default</option></select>
+                  <button class="ghost" type="button" data-subscription-action="inspect-models" disabled><span class="material-symbol button-icon" aria-hidden="true">manage_search</span><span>Inspect models</span></button>
+                </span>
+              </div>
+              <label class="setting-row" for="codex-subscription-effort"><span class="setting-copy"><strong>Reasoning effort</strong><span>Options come from the selected Codex model.</span></span><select id="codex-subscription-effort" data-subscription-field="effort" disabled><option value="">Model default</option></select></label>
+            </section>
+
+            <section class="subscription-runtime-config" data-subscription-provider="xai-grok-build" data-subscription-config-provider="xai-grok-build" aria-labelledby="grok-review-title" hidden>
+              <header class="subscription-config-head">
+                <span><strong id="grok-review-title">Grok Build semantic reviewer</strong><span>Ionic uses the official local Grok Build ACP runtime for a bounded structured review.</span></span>
+                <button class="quiet-action" type="button" data-subscription-action="check-status"><span class="material-symbol button-icon" aria-hidden="true">sync</span><span>Check sign-in</span></button>
+              </header>
+              <div class="subscription-permission">
+                <span class="material-symbol" aria-hidden="true">policy</span>
+                <span>
+                  <strong data-subscription-disclosure-field="heading">Allow Ionic to use your Grok Build subscription?</strong>
+                  <span data-subscription-disclosure-field="purpose">Optional semantic compatibility reviews that you start in Ionic.</span>
+                  <span data-subscription-disclosure-field="authentication">The official local Grok Build runtime owns sign-in and tokens. Ionic never receives them.</span>
+                  <strong>Review data sent</strong>
+                  <ul data-subscription-disclosure-list="sends"><li>Loading the current disclosure&hellip;</li></ul>
+                  <strong>Local boundary</strong>
+                  <ul data-subscription-disclosure-list="boundary"><li>Loading the current disclosure&hellip;</li></ul>
+                  <span data-subscription-disclosure-field="timing">Linking does not enable semantic review.</span>
+                  <span>This is an Ionic compatibility review delegated to Grok Build, not a general Grok workspace agent.</span>
+                </span>
+              </div>
+              <label class="subscription-consent-check"><input type="checkbox" data-subscription-consent="xai-grok-build" /><span>Allow this data to be sent for semantic reviews I start on this device.</span></label>
+              <p class="runtime-auth-status" data-subscription-field="status" role="status" aria-live="polite">Authentication not inspected</p>
+              <div class="runtime-auth-actions" role="group" aria-label="Grok Build subscription actions">
+                <button class="primary" type="button" data-subscription-action="connect-browser" disabled><span class="material-symbol button-icon" aria-hidden="true">open_in_browser</span><span>Sign in with Grok</span></button>
+                <button class="ghost" type="button" data-subscription-action="connect-device" disabled><span class="material-symbol button-icon" aria-hidden="true">devices</span><span>Use device code</span></button>
+                <button class="quiet-action danger-action" type="button" data-subscription-action="disconnect" disabled><span class="material-symbol button-icon" aria-hidden="true">logout</span><span>Sign out of Grok on this device</span></button>
+              </div>
+              <div class="subscription-device-flow hidden" data-subscription-field="device-flow" role="region" aria-label="Grok device authorization">
+                <span data-subscription-field="device-instruction">Enter this code on the authorization page:</span><code data-subscription-field="device-code">&mdash;</code>
+                <div><a class="quiet-action hidden" data-subscription-field="verification-link" href="#" target="_blank" rel="noreferrer"><span class="material-symbol button-icon" aria-hidden="true">open_in_new</span><span>Open sign-in page</span></a><button class="quiet-action" type="button" data-subscription-action="copy-code"><span class="material-symbol button-icon" aria-hidden="true">content_copy</span><span>Copy code</span></button><button class="quiet-action danger-action" type="button" data-subscription-action="cancel-login"><span class="material-symbol button-icon" aria-hidden="true">close</span><span>Cancel</span></button></div>
+              </div>
+              <div class="setting-row subscription-model-row">
+                <label class="setting-copy" for="grok-subscription-model"><strong>Model</strong><span>Loaded from capabilities advertised by the installed Grok runtime.</span></label>
+                <span class="subscription-model-controls"><select id="grok-subscription-model" data-subscription-field="model" disabled><option value="">Runtime default</option></select><button class="ghost" type="button" data-subscription-action="inspect-models" disabled><span class="material-symbol button-icon" aria-hidden="true">manage_search</span><span>Inspect models</span></button></span>
+              </div>
+              <label class="setting-row" for="grok-subscription-effort"><span class="setting-copy"><strong>Reasoning effort</strong><span>Options come from the selected Grok model.</span></span><select id="grok-subscription-effort" data-subscription-field="effort" disabled><option value="">Model default</option></select></label>
+            </section>
+
+            <div class="subscription-provider-foot">
+              <p id="subscription-runtime-selection-help">Choose the runtime Ionic should use for optional semantic review. Installed and authenticated are separate states. Changing this mode or selection never enables semantic review automatically.</p>
+              <span>Authentication and model inspection happen only after a labeled action above.</span>
+            </div>
+          </div>
+
+          <aside id="api-provider-disclosure" class="settings-disclosure model-access-panel" data-model-access-panel="api" data-setting-search="privacy data contracts telemetry network provider">
+            <strong>What leaves your machine</strong>
+            <span>
+              <p>
+                Ionic only sends the compared contract content when you explicitly run semantic review.
+                Structural checks stay local, saved keys are never shown again, and telemetry remains off.
+              </p>
+              <button id="credential-reset" class="quiet-action danger-action hidden" type="button">
+                <span class="material-symbol button-icon" aria-hidden="true">restart_alt</span>
+                <span>Reset unreadable saved keys</span>
+              </button>
+            </span>
+          </aside>
+        </section>
+
+        <section class="settings-section" id="settings-analysis" data-settings-section="analysis" aria-labelledby="settings-analysis-title" hidden>
+          <header class="settings-section-head">
+            <div>
+              <h1 id="settings-analysis-title">Analysis</h1>
+              <p>Defaults applied whenever you open a compatibility check.</p>
+            </div>
+            <span id="settings-analysis-status" class="settings-save-state" role="status" aria-live="polite"></span>
+          </header>
+
+          <div class="settings-group">
+            <label class="setting-row setting-toggle-row" data-setting-search="semantic review default llm ai judge">
+              <span class="setting-copy">
+                <strong>Semantic review by default</strong>
+                <span id="setting-use-llm-help">Use the configured provider alongside structural analysis.</span>
+              </span>
+              <span class="switch">
+                <input id="setting-use-llm" type="checkbox" aria-describedby="setting-use-llm-help" />
+                <span aria-hidden="true"></span>
+              </span>
+            </label>
+
+            <label class="setting-row" data-setting-search="fail on threshold severity block critical high medium low info">
+              <span class="setting-copy">
+                <strong>Blocking threshold</strong>
+                <span>Request changes when a finding reaches this severity.</span>
+              </span>
+              <select id="setting-fail-on">
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+                <option value="info">Info</option>
+              </select>
+            </label>
+
+            <label class="setting-row setting-toggle-row" data-setting-search="transitive indirect dependents dependency graph">
+              <span class="setting-copy">
+                <strong>Include indirect dependents</strong>
+                <span>Walk the dependency graph beyond direct consumers.</span>
+              </span>
+              <span class="switch">
+                <input id="setting-transitive" type="checkbox" />
+                <span aria-hidden="true"></span>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-section" id="settings-workspace" data-settings-section="workspace" aria-labelledby="settings-workspace-title" hidden>
+          <header class="settings-section-head">
+            <div>
+              <h1 id="settings-workspace-title">Workspace</h1>
+              <p>Choose the contract registry this desktop workspace reads.</p>
+            </div>
+            <span id="settings-workspace-status" class="settings-save-state" role="status" aria-live="polite"></span>
+          </header>
+
+          <div class="settings-group">
+            <div class="setting-row setting-path-row" data-setting-search="registry database workspace path location change">
+              <span class="setting-copy">
+                <strong>Registry</strong>
+                <span id="setting-registry-path" class="setting-path mono">Using the default registry</span>
+              </span>
+              <span class="setting-actions">
+                <button id="setting-registry-default" class="quiet-action hidden" type="button">
+                  <span class="material-symbol button-icon" aria-hidden="true">restart_alt</span><span>Use default</span>
+                </button>
+                <button id="setting-registry-change" class="ghost" type="button" aria-label="Change contract registry">
+                  <span class="material-symbol button-icon" aria-hidden="true">folder_open</span><span>Change&hellip;</span>
+                </button>
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-section" id="settings-engine" data-settings-section="engine" aria-labelledby="settings-engine-title" hidden>
+          <header class="settings-section-head">
+            <div>
+              <h1 id="settings-engine-title">Engine</h1>
+              <p>Control the verified Ionic CLI used by this desktop app.</p>
+            </div>
+            <span id="settings-engine-status" class="settings-save-state" role="status" aria-live="polite"></span>
+          </header>
+
+          <div class="settings-group">
+            <div class="setting-row setting-engine-row" data-setting-search="managed cli executable engine version path custom repair">
+              <span class="setting-copy">
+                <span class="engine-state-line">
+                  <strong id="setting-engine-name">Managed engine</strong>
+                  <span id="setting-engine-badge" class="engine-badge">Verified</span>
+                </span>
+                <span id="setting-engine-detail" class="setting-path mono">Checking engine&hellip;</span>
+              </span>
+              <div class="setting-actions">
+                <button id="setting-engine-managed" class="ghost" type="button">
+                  <span class="material-symbol button-icon" aria-hidden="true">verified</span><span>Use managed</span>
+                </button>
+                <button id="setting-engine-custom" class="ghost" type="button">
+                  <span class="material-symbol button-icon" aria-hidden="true">folder_open</span><span>Choose executable&hellip;</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <p class="settings-footnote">
+            Ionic verifies the desktop protocol before using a custom executable. The included managed engine requires no Python installation.
+          </p>
+        </section>
+
+        <section class="settings-section" id="settings-legal" data-settings-section="legal" aria-labelledby="settings-legal-title" hidden>
+          <header class="settings-section-head">
+            <div>
+              <h1 id="settings-legal-title">Legal</h1>
+              <p>Licenses and notices included with this distribution.</p>
+            </div>
+          </header>
+
+          <div class="settings-group">
+            <div class="setting-row" data-setting-search="desktop eula agreement terms tactico commercial">
+              <span class="setting-copy">
+                <strong>Desktop EULA</strong>
+                <span>Terms for the official Tactico Technologies distribution.</span>
+              </span>
+              <button class="ghost settings-legal-open" type="button" data-legal-document="eula" aria-label="View Desktop EULA">
+                <span class="material-symbol button-icon" aria-hidden="true">visibility</span><span>View</span>
+              </button>
+            </div>
+            <div class="setting-row" data-setting-search="mit open source license ionic cli source code">
+              <span class="setting-copy">
+                <strong>MIT License</strong>
+                <span>Open-source license for the Ionic CLI and source.</span>
+              </span>
+              <button class="ghost settings-legal-open" type="button" data-legal-document="mit" aria-label="View MIT License">
+                <span class="material-symbol button-icon" aria-hidden="true">visibility</span><span>View</span>
+              </button>
+            </div>
+            <div class="setting-row" data-setting-search="open source third party notices dependencies licenses attribution components">
+              <span class="setting-copy">
+                <strong>Open Source Licenses</strong>
+                <span>Search bundled components and read each exact packaged license text.</span>
+              </span>
+              <button class="ghost settings-legal-open" type="button" data-legal-document="third-party" aria-label="Browse open source licenses">
+                <span class="material-symbol button-icon" aria-hidden="true">manage_search</span><span>Browse</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </section>
+
+    <footer id="statusbar" class="statusbar hidden" aria-label="Workspace status">
+      <button id="status-registry" class="status-path mono dim" type="button"></button>
+      <span class="spacer"></span>
+      <span id="status-judge" class="dim"></span>
+      <span id="status-version" class="dim" data-product-name="Ionic Desktop"></span>
+    </footer>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true">
+      <span id="toast-message"></span>
+      <button id="toast-dismiss" class="toast-dismiss" type="button" aria-label="Dismiss notification">
+        <span class="material-symbol" aria-hidden="true">close</span>
+      </button>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

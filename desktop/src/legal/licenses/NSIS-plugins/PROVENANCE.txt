@@ -1,0 +1,68 @@
+IONIC WINDOWS SETUP - NSIS COMPONENT PROVENANCE
+
+Reviewed toolchain: electron-builder 26.15.3
+NSIS core bundle: nsis-3.0.4.1
+NSIS resource bundle: nsis-resources-3.4.1
+
+The release build uses electron-builder's pinned resource archives:
+
+  https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z
+  SHA-256: 9877df902530f96357d13a7a31ae2b9df67f48b11ffc9a1700a7c961574ec5fa
+
+  https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-resources-3.4.1/nsis-resources-3.4.1.7z
+  SHA-256: 593a9a92ef958321293ac6a2ee61e64bf1bd543142a5bd6b3d310709cc924103
+
+The nsis-3.0.4.1 release tag resolves to electron-builder-binaries commit
+fac48dd35372e2d25b7a2d20478ace2cc6df4d50. Its build recipe downloads the
+NSIS 3.04 source below and builds it with NSIS_MAX_STRLEN=8192:
+  https://github.com/electron-userland/electron-builder-binaries/blob/fac48dd35372e2d25b7a2d20478ace2cc6df4d50/nsis/nsis-linux.sh
+
+The following x86 Unicode plug-ins are embedded temporarily in the Setup EXE.
+Each hash byte-matches the named authoritative upstream release archive.
+
+StdUtils 1.14 (FileVersion 1.1.4.0)
+  DLL SHA-256: b72e9013a6204e9f01076dc38dabbf30870d44dfc66962adbf73619d4331601e
+  Upstream release: https://github.com/lordmulder/stdutils/releases/tag/1.14
+  Upstream binary archive:
+    https://github.com/lordmulder/stdutils/releases/download/1.14/StdUtils.2018-10-27.zip
+  Archive SHA-256: 3ffe893dc7477fdb1cac551a86ae017509e1f2d0ebdc7185fd0fbaf20870688c
+  Exact corresponding source is packaged as:
+    resources/legal/sources/NSIS-plugins/StdUtils-1.14-sources.tar
+  Source SHA-256: db9f98d7a947d5a6b7cd341e01edd412ea04510c5faee19a23b1e84582d86121
+
+Nsis7z 19.00
+  DLL SHA-256: b393f05e8ff919ef071181050e1873c9a776e1a0ae8329aefff7007d0cadf592
+  Upstream page: https://nsis.sourceforge.io/Nsis7z_plug-in
+  Upstream archive:
+    https://nsis.sourceforge.io/mediawiki/images/6/69/Nsis7z_19.00.7z
+  The exact archive, including the plug-in source, is packaged as:
+    resources/legal/sources/NSIS-plugins/Nsis7z-19.00-source-and-binaries.7z
+  Archive SHA-256: 6f2f3730049926f40442ee0c8b7d3e3dee7ace544d82467ff8059ea3f4201c58
+  Its exact Contrib/nsis7z/DOC/License.txt is presented in the app as:
+    resources/legal/licenses/NSIS-plugins/Nsis7z-19.00-LZMA-SDK-License.txt
+  License-text SHA-256: 63fcfe54826809b5a9f9df8a8ff53c04330122319ec67a2dd815085586adaf0e
+  Corresponding 7-Zip 19.00 source is packaged as:
+    resources/legal/sources/NSIS-plugins/7z1900-src.7z
+  Source SHA-256: 9ba70a5e8485cf9061b30a2a84fe741de5aeb8dd271aab8889da0e9b3bf1868e
+  Authoritative source URL: https://www.7-zip.org/a/7z1900-src.7z
+
+UAC 0.2.4c (20150526)
+  DLL SHA-256: 2f7f8fc05dc4fd0d5cda501b47e4433357e887bbfed7292c028d99c73b52dc08
+  Upstream page: https://nsis.sourceforge.io/UAC_plug-in
+  Upstream archive:
+    https://nsis.sourceforge.io/mediawiki/images/8/8f/UAC.zip
+  The exact source-and-binary archive is packaged as:
+    resources/legal/sources/NSIS-plugins/UAC-0.2.4c-source-and-binaries.zip
+  Archive SHA-256: 20e3192af5598568887c16d88de59a52c2ce4a26e42c5fb8bee8105dcbbd1760
+
+NSIS 3.04 corresponding source is packaged as:
+  resources/legal/sources/NSIS-plugins/nsis-3.04-src.tar.bz2
+Source SHA-256: 609536046c50f35cfd909dd7df2ab38f2e835d0da3c1048aa0d48c59c5a4f4f5
+Authoritative source URL:
+  https://downloads.sourceforge.net/project/nsis/NSIS%203/3.04/nsis-3.04-src.tar.bz2
+
+WinShell 20121005 is deliberately not used or embedded. Its upstream download
+contains only two DLL files and its upstream page identifies the terms only as
+"Freeware," without an exact redistribution license. Ionic replaces those
+calls with source-visible Windows Shell COM calls through NSIS's System plug-in.
+Upstream reference: https://nsis.sourceforge.io/WinShell_plug-in

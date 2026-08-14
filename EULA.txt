@@ -1,0 +1,213 @@
+IONIC DESKTOP END USER LICENSE AGREEMENT
+AND OFFICIAL SERVICES TERMS
+
+Version: 2026-08-12.1
+Effective date: August 12, 2026
+Publisher: Tactico Technologies
+
+PLEASE READ THIS AGREEMENT CAREFULLY. IT EXPLAINS THE TERMS THAT APPLY TO THE
+OFFICIAL IONIC DESKTOP DISTRIBUTION AND TO ANY RELATED COMMERCIAL SERVICES YOU
+ORDER FROM TACTICO TECHNOLOGIES. IT DOES NOT TAKE AWAY RIGHTS GRANTED TO YOU BY
+THE MIT LICENSE OR ANY OTHER OPEN-SOURCE LICENSE.
+
+1. PARTIES AND ACCEPTANCE
+
+This End User License Agreement and Official Services Terms (the "Agreement")
+is between Tactico Technologies ("Tactico," "we," or "us"), the publisher of
+the official Ionic desktop distribution, and the person or organization using
+that distribution ("you"). "Official Distribution" means an Ionic desktop
+installer or portable executable that Tactico publishes as an official build.
+
+You accept this Agreement by selecting the acceptance control presented by the
+installer or application, or by installing or using the Official Distribution
+after being given an opportunity to review these terms. If you use it for an
+organization, you confirm that you are authorized to accept this Agreement for
+that organization. If you do not agree, do not install or use the Official
+Distribution. You may still obtain and use open-source Ionic code under its
+applicable open-source license.
+
+2. OPEN-SOURCE SOFTWARE AND PRIOR RIGHTS
+
+Ionic's open-source source code is offered under the MIT License. The Official
+Distribution also contains third-party open-source software governed by its own
+license terms. Those licenses are included with, or referenced by, the Official
+Distribution and in THIRD-PARTY-NOTICES.txt.
+
+Your rights in open-source software come directly from the applicable
+open-source licenses, not from this Agreement. Nothing in this Agreement
+restricts, replaces, or conditions a right granted by an applicable
+open-source license. If this Agreement conflicts with an open-source license
+for a particular component, the open-source license controls for that
+component. Copyright and permission notices must be retained where the
+applicable license requires them.
+
+3. TACTICO MATERIALS AND OFFICIAL DISTRIBUTION
+
+"Tactico Materials" means only the Tactico Technologies and Ionic names,
+wordmarks, logos, icons, and trade dress; Tactico's official-release signing
+identity, certificates, signatures, and attestations; and any release-specific
+packaging or service material that Tactico expressly identifies as proprietary.
+Tactico Materials do not include Ionic source code released under the MIT
+License, public build scripts, or third-party open-source components.
+
+For Tactico Materials embedded in an Official Distribution, Tactico grants you
+a non-exclusive, non-transferable license to install and use those materials as
+part of that Official Distribution for your internal personal or business
+purposes during the term of this Agreement.
+
+The Official Distribution may install a managed Ionic command-line engine with
+the desktop application. That managed engine is part of the installed product;
+the current Official Distribution does not download the CLI at runtime.
+
+Except where an applicable open-source license or mandatory law gives you a
+right to do so, you may not remove proprietary notices from Tactico Materials,
+misrepresent an unofficial build as an Official Distribution, use Tactico
+branding to imply sponsorship or endorsement, or use the Official Distribution
+to violate law or another person's rights. These restrictions do not limit
+lawful modification or redistribution of open-source components under their
+licenses.
+
+Names, logos, and branding displayed by the Official Distribution are reserved
+to their respective owners and are not licensed except as necessary to identify
+the software. Separate permission is required for other use of that branding.
+
+4. FREE DISTRIBUTION AND COMMERCIAL OFFERINGS
+
+Tactico does not charge an installation or usage fee for the generally
+available Official Distribution described by this Agreement. Tactico may offer
+separate commercial features, signed or air-gapped packaging, support,
+service-level commitments, onboarding, or other commercial services
+(collectively, "Commercial Offerings").
+
+A Commercial Offering is provided only under a mutually accepted order form,
+statement of work, or other written commercial agreement (an "Order"). The
+Order will state the applicable scope, term, fees, payment terms, service
+levels, and any cancellation or refund rights. Tactico will not charge you for
+a Commercial Offering unless you have accepted an Order or otherwise expressly
+authorized the charge. If an Order conflicts with this Agreement, the Order
+controls for that Commercial Offering to the extent of the conflict.
+
+5. YOUR CONTENT, REGISTRY, AND CREDENTIALS
+
+You retain ownership of contract definitions, source files, registry data,
+compatibility proposals, prompts, and other content you process with Ionic
+("Your Content"). You give Tactico no license to Your Content merely because
+you use the local Official Distribution.
+
+You are responsible for having the rights needed to process Your Content and
+for protecting credentials you configure for external model providers. Do not
+submit secrets or content to a remote provider unless you are authorized to do
+so and have reviewed that provider's terms.
+
+6. PRIVACY, TELEMETRY, AND NETWORK ACTIVITY
+
+The Official Distribution and managed CLI do not contain Ionic telemetry,
+analytics, advertising trackers, or usage reporting. Contract registries and
+ordinary structural checks remain on your device.
+
+If you deliberately enable semantic review with a remote model provider, the
+contract or proposal content needed for that review, along with technical
+request metadata required to deliver it, is sent directly to the provider you
+configured. The provider's terms and privacy practices govern that processing.
+Using a local model provider keeps that model request within the endpoint you
+configure. Opening an external link leaves Ionic and is governed by the
+destination's practices.
+
+7. THIRD-PARTY SERVICES
+
+Optional integrations and remote model providers are third-party services.
+Tactico does not control them and is not responsible for their availability,
+security, outputs, or handling of Your Content. Your use of a third-party
+service is governed by your agreement with its provider. Ionic's deterministic
+structural analysis can be used without a remote model provider.
+
+8. UPDATES AND CHANGES TO THE PRODUCT
+
+Tactico may make corrected or updated versions of the Official Distribution
+available. Unless separate update terms say otherwise, you decide whether to
+install an update. A new version may change compatibility, platform support, or
+functionality. Tactico does not promise that every version or integration will
+remain available indefinitely.
+
+9. SUPPORT AND AVAILABILITY
+
+The free Official Distribution is provided without a service-level commitment
+or guaranteed support response. Any binding support, maintenance, uptime, or
+response commitment must appear in an Order. Community issue reporting is
+available at https://github.com/tacticocc/Ionic/issues.
+
+10. DISCLAIMER OF WARRANTIES
+
+OPEN-SOURCE COMPONENTS ARE PROVIDED SUBJECT TO THE WARRANTY TERMS AND
+DISCLAIMERS IN THEIR APPLICABLE LICENSES. TO THE MAXIMUM EXTENT PERMITTED BY
+LAW, THE OFFICIAL DISTRIBUTION, TACTICO MATERIALS, AND FREE SERVICES ARE
+PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTIES OF ANY KIND, WHETHER
+EXPRESS, IMPLIED, OR STATUTORY, INCLUDING WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, ACCURACY, OR
+UNINTERRUPTED OR ERROR-FREE OPERATION.
+
+Ionic reports are decision-support tools. You remain responsible for reviewing
+results, source changes, deployment decisions, and the outputs of any model
+provider. Nothing in Ionic is legal, security, compliance, or professional
+advice. Nothing in this Agreement limits a warranty or consumer right that
+cannot lawfully be excluded.
+
+11. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, NEITHER PARTY WILL BE LIABLE UNDER THIS
+AGREEMENT FOR LOST PROFITS, LOST REVENUE, LOSS OR CORRUPTION OF DATA, BUSINESS
+INTERRUPTION, OR ANY INDIRECT, SPECIAL, INCIDENTAL, CONSEQUENTIAL, EXEMPLARY,
+OR PUNITIVE DAMAGES, EVEN IF ADVISED THAT SUCH DAMAGES WERE POSSIBLE.
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, TACTICO'S TOTAL AGGREGATE LIABILITY
+ARISING OUT OF OR RELATING TO THE FREE OFFICIAL DISTRIBUTION WILL NOT EXCEED
+THE AMOUNT YOU PAID TACTICO FOR THAT DISTRIBUTION. LIABILITY FOR A COMMERCIAL
+OFFERING WILL NOT EXCEED THE AMOUNT YOU PAID TACTICO FOR THAT COMMERCIAL
+OFFERING DURING THE TWELVE MONTHS BEFORE THE EVENT GIVING RISE TO THE CLAIM.
+
+These limitations apply regardless of the legal theory and do not apply to the
+extent prohibited by mandatory law. An Order may state a different negotiated
+liability allocation for a Commercial Offering.
+
+12. TERM AND TERMINATION
+
+This Agreement begins when you accept it and continues until terminated. You
+may terminate it at any time by stopping use of and uninstalling the Official
+Distribution. Tactico may terminate your license to Tactico Materials if you
+materially breach this Agreement and do not cure the breach within a reasonable
+period after notice, when cure is possible.
+
+Termination of this Agreement does not terminate or narrow rights you received
+under an open-source license. Sections that by their nature should survive,
+including Sections 2, 5, 6, 7, 10, 11, 13, and 14, survive termination.
+
+13. CHANGES TO THIS AGREEMENT
+
+Tactico may update this Agreement for a future release. A material update will
+carry a new version and effective date and will be presented for acceptance
+before it applies to your continued use of that release. An update does not
+retroactively narrow rights already granted under an open-source license.
+
+14. GENERAL TERMS
+
+This Agreement and any applicable Order are the entire agreement between you
+and Tactico about their subject matter and replace prior statements about that
+subject matter. If part of this Agreement is unenforceable, it will be enforced
+to the maximum lawful extent and the remaining terms will remain in effect.
+Failure to enforce a term is not a waiver. You may not assign this Agreement
+without Tactico's written consent, except in connection with a merger,
+reorganization, or sale of substantially all relevant assets. Tactico may
+assign this Agreement in connection with a reorganization, merger,
+acquisition, or sale of the relevant business or assets.
+
+This Agreement does not choose a governing law, court, arbitration process, or
+dispute venue. Those terms may be established in an applicable Order. Any
+non-waivable rights and mandatory laws that apply to you remain unaffected.
+
+15. CONTACT
+
+Questions about this Agreement may be submitted at:
+https://github.com/tacticocc/Ionic/issues
+
+Do not include passwords, API keys, confidential contract data, or other
+secrets in a public issue.

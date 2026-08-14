@@ -1,0 +1,12 @@
+# Keep source checkouts deterministic on every platform.
+* text=auto eol=lf
+
+# Exact legal and binary assets must not be changed by checkout filters.
+desktop/src/legal/licenses/** -text whitespace=-trailing-space
+desktop/src/legal/sources/** -text
+*.png -text
+*.woff2 -text
+*.7z -text
+*.zip -text
+*.tar -text
+*.bz2 -text

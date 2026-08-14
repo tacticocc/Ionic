@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+# Anchored: desktop/build holds the app icon and must be committed.
+/build/
+/dist/
+.venv/
+venv/
+/.desktop-build-venv/
+/desktop/.pyinstaller/
+/desktop/build/cli/
+/desktop/build/legal/
+/desktop/build/essential/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Ionic local state — registries are per-machine, never committed
+.ionic/
+*.db
+*.db-journal
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Demo scratch registry
+.ionic-demo/

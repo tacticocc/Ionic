@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ionic-contracts"
+dynamic = ["version"]
+description = "The compatibility layer for multi-agent systems. Register agent contracts, detect semantic breakages before they ship."
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+keywords = ["agents", "mcp", "contracts", "compatibility", "llm", "multi-agent"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "pydantic>=2.7",
+    "typer>=0.12",
+    "rich>=13.7",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.2"]
+anthropic = ["anthropic>=0.40"]
+openai = ["httpx>=0.27"]
+google = ["httpx>=0.27"]
+xai = ["httpx>=0.27"]
+local = ["httpx>=0.27"]
+all = ["mcp>=1.2", "anthropic>=0.40", "httpx>=0.27"]
+dev = [
+    "pytest>=8.0",
+    "mcp>=1.2",
+    "anthropic>=0.40",
+    "httpx>=0.27",
+    "pyinstaller>=6.15",
+]
+
+[project.scripts]
+ionic = "ionic.cli:main"
+ionic-mcp = "ionic.mcp_server:main"
+
+[project.urls]
+Homepage = "https://github.com/tacticocc/Ionic"
+Source = "https://github.com/tacticocc/Ionic"
+Issues = "https://github.com/tacticocc/Ionic/issues"
+
+[tool.hatch.version]
+path = "ionic/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ionic"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,0 +1,128 @@
+IONIC OFFICIAL DISTRIBUTION — THIRD-PARTY NOTICES
+
+Publisher: Tactico Technologies
+Notice version: 2026-08-14.1
+
+Ionic includes software developed by third parties. Tactico Technologies
+publishes the Official Distribution but is not the author or licensor of every
+included component. Each third-party component remains governed by its own
+license; those license terms control for that component.
+
+This file is an overview, not a replacement for the applicable license texts.
+The exact dependency versions and transitive packages may vary by release.
+
+WHERE TO FIND THE LICENSES
+
+An installed desktop build places this notice and the applicable packaged
+license materials in its application resources. Look under:
+
+  resources/legal/
+  resources/legal/licenses/
+
+Electron distributions also include Chromium's generated attribution file,
+normally named LICENSES.chromium.html, with the Electron runtime. The release
+archive and source repository contain dependency manifests that identify the
+resolved build inputs. If a packaged notice and a component's license disagree,
+the component's license controls.
+
+MAJOR COMPONENT GROUPS
+
+1. Ionic open-source core
+
+   The Ionic source code is distributed under the MIT License. A copy is
+   provided as LICENSE. The copyright and permission notice must remain with
+   copies or substantial portions as required by that license.
+
+2. Electron desktop runtime
+
+   The desktop application is built with Electron and therefore includes
+   Electron, Chromium, Node.js, and third-party code used by those projects.
+   Electron's own license and Chromium's generated attributions are included
+   with the packaged runtime. Chromium's attribution file contains many
+   component-specific notices and license texts.
+
+3. Bundled Python runtime and Ionic command-line engine
+
+   The Windows desktop package includes a managed Ionic CLI so users do not
+   need a separate Python or pip installation. That executable includes or
+   depends on the Python runtime, packaging bootloader code, and Python
+   libraries. The direct runtime dependency set includes Pydantic, Typer, Rich,
+   and PyYAML. Builds that include all Ionic integrations also include the MCP
+   Python SDK, the Anthropic Python SDK, HTTPX, and their transitive
+   dependencies.
+
+   The corresponding licenses and required notices for the exact files in the
+   frozen executable are supplied in resources/legal/licenses/. The build
+   derives this inventory from PyInstaller's final bundle tables and fails if
+   a collected Python distribution cannot be identified or lacks usable exact
+   license or notice text. Optional integrations remain subject to the terms
+   of the external service when the user chooses to connect to that service.
+
+   PyInstaller contributes its bootloader and runtime support under GPL-2.0-or-
+   later with the PyInstaller Bootloader Exception. That exception expressly
+   permits distributing frozen commercial or non-free applications under the
+   application's chosen license. The packaged license browser includes the
+   exact PyInstaller terms and exception used by this build.
+
+4. Build and packaging tools
+
+   Electron Builder and Python packaging tools are used to produce Official
+   Distributions. A tool is not necessarily included in the installed product
+   merely because it was used during the build. Where a tool contributes code
+   to the installed product, its required license and notice are included in
+   resources/legal/licenses/.
+
+5. Inter typeface
+
+   The desktop interface bundles Inter 4.1 by Rasmus Andersson and the Inter
+   Project Authors. Inter is distributed under the SIL Open Font License,
+   Version 1.1. Its license is included at
+   resources/legal/licenses/Inter-4.1/OFL-1.1.txt.
+
+6. Google Material Symbols
+
+   The desktop interface bundles the Material Symbols Rounded variable icon
+   font from Google's material-design-icons project. Material Symbols is
+   distributed under the Apache License, Version 2.0. Its license is included
+   at resources/legal/licenses/Material-Symbols/Apache-2.0.txt.
+
+   Upstream source: https://github.com/google/material-design-icons
+   Revision: 50f0603134ce7b70b2d71b686cc13e8b57ccb74c
+   Source path:
+     variablefont/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2
+   Bundled font SHA-256:
+     3500043e8929d5140f34dff8f8687e1dd5fda3a33fff20bfcc96ecd0b2f99518
+
+7. Windows Setup toolchain and runtime plug-ins
+
+   The Windows Setup EXE is built with NSIS 3.0.4.1 and electron-builder's
+   nsis-resources 3.4.1 bundle. The Setup temporarily embeds the following
+   separately loaded plug-ins in addition to NSIS core plug-ins:
+
+   - StdUtils 1.14 (FileVersion 1.1.4.0), distributed under
+     LGPL-2.1-or-later with the author's NSIS plug-in clarification.
+   - Nsis7z 19.00, following the exact 7-Zip 19.00 and LZMA SDK terms:
+     LGPL-2.1-or-later plus component-specific terms and public-domain code.
+   - UAC 0.2.4c, distributed under the zlib License.
+
+   Exact license texts, binary provenance, upstream URLs, and SHA-256 hashes
+   are included in resources/legal/licenses/NSIS-plugins/. Complete
+   corresponding source archives are included in
+   resources/legal/sources/NSIS-plugins/.
+
+   WinShell 20121005 is not embedded. Its upstream artifact did not provide an
+   exact redistribution license beyond the label "Freeware," so Ionic uses
+   source-visible NSIS System/COM calls for the equivalent Shell operations.
+
+NO CHANGE TO THIRD-PARTY TERMS
+
+Nothing in the Ionic EULA expands, restricts, or replaces a third-party
+license. Third-party software is provided subject to its own warranty
+disclaimers and liability terms. Source-code offer obligations, attribution
+requirements, and relinking or modification rights, where applicable, are
+honored according to the governing component license.
+
+Questions about an Ionic distribution or a missing notice may be submitted at:
+https://github.com/tacticocc/Ionic/issues
+
+Do not include credentials or confidential data in a public issue.

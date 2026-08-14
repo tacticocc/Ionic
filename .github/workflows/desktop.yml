@@ -1,0 +1,281 @@
+name: Desktop
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "desktop/**"
+      - "ionic/**"
+      - "brand/**"
+      - "EULA.txt"
+      - "LICENSE"
+      - "THIRD-PARTY-NOTICES.txt"
+      - "pyproject.toml"
+      - "requirements/desktop-build-constraints.txt"
+      - ".github/workflows/desktop.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "desktop/**"
+      - "ionic/**"
+      - "brand/**"
+      - "EULA.txt"
+      - "LICENSE"
+      - "THIRD-PARTY-NOTICES.txt"
+      - "pyproject.toml"
+      - "requirements/desktop-build-constraints.txt"
+      - ".github/workflows/desktop.yml"
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  edition:
+    name: Validate edition boundary
+    runs-on: ubuntu-latest
+    outputs:
+      edition: ${{ steps.edition.outputs.edition }}
+      output_directory: ${{ steps.edition.outputs.output_directory }}
+      version: ${{ steps.edition.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Match branch, package, and distribution identity
+        id: edition
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          BASE_REF: ${{ github.base_ref }}
+          RELEASE_TARGET: ${{ github.event.release.target_commitish }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const pkg = require("./desktop/package.json");
+
+          const branch = process.env.EVENT_NAME === "pull_request"
+            ? process.env.BASE_REF
+            : process.env.EVENT_NAME === "release"
+              ? process.env.RELEASE_TARGET
+              : process.env.REF_NAME;
+          const expected = branch === "main" ? "essential" : null;
+          if (!expected) {
+            throw new Error(
+              `Essential distributions may be built only from main; received ${branch || "an empty ref"}.`,
+            );
+          }
+
+          const packagedEdition = pkg.build?.extraMetadata?.ionicEdition;
+          if (pkg.ionicEdition !== expected || packagedEdition !== expected) {
+            throw new Error(
+              `Branch ${branch} requires ${expected} package metadata; found ` +
+              `${JSON.stringify(pkg.ionicEdition)} / ${JSON.stringify(packagedEdition)}.`,
+            );
+          }
+
+          const outputDirectory = `dist/${expected}`;
+          if (pkg.build?.directories?.output !== outputDirectory) {
+            throw new Error(
+              `The ${expected} edition must write to desktop/${outputDirectory}; found ` +
+              `${JSON.stringify(pkg.build?.directories?.output)}.`,
+            );
+          }
+
+          if (process.env.EVENT_NAME === "release") {
+            const expectedTag = `v${pkg.version}`;
+            if (process.env.RELEASE_TAG !== expectedTag) {
+              throw new Error(
+                `The ${expected} ${pkg.version} release must use tag ${expectedTag}; found ` +
+                `${JSON.stringify(process.env.RELEASE_TAG)}.`,
+              );
+            }
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `edition=${expected}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `output_directory=${outputDirectory}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${pkg.version}\n`);
+          NODE
+
+      - name: Require release tag commit on the edition branch
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          RELEASE_TARGET: ${{ github.event.release.target_commitish }}
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" "origin/$RELEASE_TARGET" || {
+            echo "Release tag commit $GITHUB_SHA is not on origin/$RELEASE_TARGET." >&2
+            exit 1
+          }
+
+  # The bridge tests run the real CLI, so they only need one platform.
+  test:
+    needs: edition
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Install Ionic CLI
+        run: pip install -e ".[dev]"
+        env:
+          PIP_CONSTRAINT: ${{ github.workspace }}/requirements/desktop-build-constraints.txt
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+
+      - name: Bridge tests (against the real CLI)
+        working-directory: desktop
+        run: npm test
+
+  # Push and pull-request builds are short-lived validation artifacts. They are
+  # staged through an exact allowlist so Electron Builder diagnostics, update
+  # metadata, unpacked trees, local paths, and stale outputs are never uploaded.
+  build:
+    needs: [edition, test]
+    if: github.event_name != 'release'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+          - os: macos-latest
+            target: mac
+          - os: windows-latest
+            target: win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Install CLI build dependencies
+        run: python -m pip install -e ".[dev]"
+        env:
+          PIP_CONSTRAINT: ${{ github.workspace }}/requirements/desktop-build-constraints.txt
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+
+      - name: Build distributions
+        working-directory: desktop
+        run: npm run dist:${{ matrix.target }}
+        env:
+          # Validation artifacts are intentionally not official releases.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Stage allowlisted validation artifacts
+        working-directory: desktop
+        run: npm run release:stage -- --target ${{ matrix.target }} --arch x64
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ionic-${{ needs.edition.outputs.edition }}-validation-${{ matrix.target }}
+          path: desktop/release-staging/${{ needs.edition.outputs.edition }}/${{ matrix.target }}/*
+          if-no-files-found: error
+          retention-days: 14
+          include-hidden-files: false
+
+  # Published Essential Windows artifacts are a separate fail-closed path.
+  # Missing credentials, a non-Tactico signer, an invalid signature, or a
+  # missing trusted timestamp stops the job before anything is staged.
+  windows-release:
+    name: Verify signed Essential Windows release
+    needs: [edition, test]
+    if: github.event_name == 'release' && needs.edition.outputs.edition == 'essential' && vars.ENABLE_SIGNED_RELEASES == 'true'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Require the Tactico Windows signing identity
+        shell: powershell
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CSC_LINK)) {
+            throw "WINDOWS_CSC_LINK is not configured; no official Windows release can be produced."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:CSC_KEY_PASSWORD)) {
+            throw "WINDOWS_CSC_KEY_PASSWORD is not configured; no official Windows release can be produced."
+          }
+
+      - name: Install CLI build dependencies
+        run: python -m pip install -e ".[dev]"
+        env:
+          PIP_CONSTRAINT: ${{ github.workspace }}/requirements/desktop-build-constraints.txt
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+
+      - name: Build and verify signed Windows distributions
+        working-directory: desktop
+        run: npm run dist:win:signed
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+
+      - name: Stage allowlisted signed artifacts
+        working-directory: desktop
+        run: npm run release:stage -- --target win --arch x64
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ionic-${{ needs.edition.outputs.edition }}-windows-signed
+          path: desktop/release-staging/${{ needs.edition.outputs.edition }}/win/*
+          if-no-files-found: error
+          retention-days: 30
+          include-hidden-files: false
+
+      - name: Attach signed artifacts to the GitHub Release
+        working-directory: desktop
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          APP_VERSION: ${{ needs.edition.outputs.version }}
+        run: |
+          $stage = "release-staging/essential/win"
+          $files = @(
+            "$stage/Ionic-Essential-Setup-$env:APP_VERSION-x64.exe",
+            "$stage/Ionic-Essential-$env:APP_VERSION-x64.zip",
+            "$stage/artifacts.json"
+          )
+          foreach ($file in $files) {
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
+              throw "Required staged release file is missing: $file"
+            }
+          }
+          & gh release upload $env:RELEASE_TAG @files
+          if ($LASTEXITCODE -ne 0) {
+            throw "GitHub Release upload failed; existing assets are never overwritten automatically."
+          }
