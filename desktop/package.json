@@ -181,6 +181,7 @@
       ],
       "icon": "Ionic Icon BG.png",
       "category": "Development",
+      "maintainer": "Tactico Technologies <contact@tactico.cc>",
       "synopsis": "Agent contract compatibility",
       "description": "Register agent contracts, see how they depend on each other, and detect breaking changes before they ship. Zero telemetry."
     },
