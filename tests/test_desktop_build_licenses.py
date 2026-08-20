@@ -350,11 +350,13 @@ def test_repository_desktop_build_lock_is_exact_and_covers_runtime_dependencies(
         "anthropic",
         "httpx",
         "mcp",
+        "prompt-toolkit",
         "pydantic",
         "pyinstaller",
         "pyyaml",
         "rich",
         "typer",
+        "wcwidth",
     } <= set(locked)
     assert all(version and not any(character.isspace() for character in version)
                for version in locked.values())

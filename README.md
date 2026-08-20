@@ -88,12 +88,15 @@ requirement or Ionic telemetry.
 - Opt in to semantic review with a configured provider or supported
   subscription runtime.
 - Use Ionic through the desktop app, CLI, Python API, or MCP.
+- Work interactively from a bounded terminal cockpit with completion and
+  in-session history.
 
 ### Built With
 
 - [Python 3.11+](https://www.python.org/)
 - [Pydantic](https://docs.pydantic.dev/)
 - [Typer](https://typer.tiangolo.com/)
+- [prompt-toolkit](https://python-prompt-toolkit.readthedocs.io/)
 - [Electron](https://www.electronjs.org/)
 - [Node.js 22+](https://nodejs.org/)
 
@@ -131,11 +134,11 @@ before running it:
 
 ### Install the CLI from PyPI
 
-Install the Ionic 0.6.2 CLI from PyPI with:
+Install the Ionic 0.7.0 CLI from PyPI with:
 
 ```sh
 python -m pip install ionic
-ionic version
+ionic
 ```
 
 Install the optional MCP integration with:
@@ -183,6 +186,31 @@ Technologies signing credentials are not stored in this repository.
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Usage
+
+### Open the interactive terminal
+
+Run Ionic without arguments in a real terminal to open the contract operations
+cockpit:
+
+```sh
+ionic
+```
+
+Type `/` to open the described command palette. Use Up/Down and Tab/Shift-Tab
+to choose, then Enter to insert a command. `/dashboard` shows local registry
+health; `/repo add ID PATH` selects repositories for the current TUI session,
+and `/workspace scan`, `check`, or `sync` uses that selection unless you supply
+an explicit `--repo` or `--manifest`. Session repositories are not persisted
+to Desktop, disk, or the contract registry.
+
+Tab with an empty command focuses scrollback. Use Up/Down, PageUp/PageDown,
+`g`/`G`, or the mouse wheel to review output, then Tab to return to the command
+bar. `/quit` or Ctrl-D exits. The command bar only runs allowlisted Ionic
+operations; it does not execute shell commands.
+
+All direct commands remain available for scripts and automation. Redirected
+input/output, CI, `IONIC_NO_TUI=1`, and Desktop sidecar calls stay
+non-interactive.
 
 ### Register agent contracts
 
