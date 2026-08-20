@@ -83,7 +83,7 @@ describe("desktop status contract", () => {
   it("rejects a desktop identity from another edition", () => {
     assert.throws(
       () => composeDesktopStatus(CLI_STATUS, { useLlm: false }, {
-        version: "0.6.2",
+        version: "0.7.0",
         edition: "other",
         productName: "Other Product",
       }),
@@ -101,7 +101,7 @@ describe("desktop status contract", () => {
         judgeProvider: "anthropic",
         judgeModel: "claude-sonnet-5",
       },
-      { version: "0.6.2", edition: "essential", productName: "Ionic Essential" }
+      { version: "0.7.0", edition: "essential", productName: "Ionic Essential" }
     );
     assert.equal(status.analysis.mode, "semantic");
     assert.match(status.analysis.description, /Grok Build/);

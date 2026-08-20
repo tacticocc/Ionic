@@ -2,7 +2,7 @@
   "name": "ionic-essential-desktop",
   "productName": "Ionic Essential",
   "ionicEdition": "essential",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "Desktop client for Ionic — register agent contracts, detect semantic breakages before they ship.",
   "license": "MIT",
   "author": "Tactico Technologies",

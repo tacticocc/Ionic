@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import json
 import os
 from pathlib import Path
+import sys
 from typing import Any, Optional
 
 import typer
@@ -1558,7 +1560,45 @@ def _finding_panel(finding: Finding) -> Panel:
     )
 
 
+def _stream_is_tty(stream: Any) -> bool:
+    """Return whether *stream* is interactive without trusting its shape."""
+    try:
+        return bool(stream.isatty())
+    except (AttributeError, OSError):
+        return False
+
+
+def _should_launch_tui(
+    *,
+    argv: list[str] | None = None,
+    input_stream: Any | None = None,
+    output_stream: Any | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> bool:
+    """Keep the interactive shell out of scripts, CI, and Desktop IPC."""
+    arguments = sys.argv[1:] if argv is None else argv
+    stdin = sys.stdin if input_stream is None else input_stream
+    stdout = sys.stdout if output_stream is None else output_stream
+    env = os.environ if environ is None else environ
+    return (
+        not arguments
+        and _stream_is_tty(stdin)
+        and _stream_is_tty(stdout)
+        and not env.get("CI")
+        and not env.get("IONIC_NO_TUI")
+    )
+
+
 def main() -> None:  # pragma: no cover
+    if _should_launch_tui():
+        from .tui import run_tui
+
+        try:
+            raise SystemExit(run_tui())
+        except KeyboardInterrupt:
+            raise SystemExit(130) from None
+        except EOFError:
+            raise SystemExit(0) from None
     app()
 
 

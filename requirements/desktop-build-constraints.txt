@@ -1,4 +1,4 @@
-# Reviewed Python environment for Ionic Essential Desktop 0.6.2 sidecars.
+# Reviewed Python environment for Ionic Essential Desktop 0.7.0 sidecars.
 #
 # CI exports this file through PIP_CONSTRAINT before installing .[dev], and
 # build_cli.py records its SHA-256 in the managed-engine manifest. Update the
@@ -38,6 +38,7 @@ packaging==26.3
 pathspec==1.1.1
 pefile==2024.8.26
 pluggy==1.6.0
+prompt-toolkit==3.0.53
 pydantic==2.13.4
 pydantic-core==2.46.4
 pygments==2.20.0
@@ -65,3 +66,4 @@ typer==0.27.1
 typing-extensions==4.16.0
 typing-inspection==0.4.4
 uvicorn==0.52.1
+wcwidth==0.8.2

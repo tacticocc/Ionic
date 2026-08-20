@@ -47,9 +47,9 @@ MAJOR COMPONENT GROUPS
    need a separate Python or pip installation. That executable includes or
    depends on the Python runtime, packaging bootloader code, and Python
    libraries. The direct runtime dependency set includes Pydantic, Typer, Rich,
-   and PyYAML. Builds that include all Ionic integrations also include the MCP
-   Python SDK, the Anthropic Python SDK, HTTPX, and their transitive
-   dependencies.
+   PyYAML, and prompt-toolkit. Builds that include all Ionic integrations also
+   include the MCP Python SDK, the Anthropic Python SDK, HTTPX, and their
+   transitive dependencies.
 
    The corresponding licenses and required notices for the exact files in the
    frozen executable are supplied in resources/legal/licenses/. The build
