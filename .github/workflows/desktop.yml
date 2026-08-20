@@ -178,7 +178,8 @@ jobs:
 
       - name: Install CLI build dependencies
         shell: bash
-        run: "$IONIC_BUILD_PYTHON" -m pip install -e ".[dev]"
+        run: |
+          "$IONIC_BUILD_PYTHON" -m pip install -e ".[dev]"
         env:
           PIP_CONSTRAINT: ${{ github.workspace }}/requirements/desktop-build-constraints.txt
 
@@ -247,7 +248,8 @@ jobs:
 
       - name: Install CLI build dependencies
         shell: bash
-        run: "$IONIC_BUILD_PYTHON" -m pip install -e ".[dev]"
+        run: |
+          "$IONIC_BUILD_PYTHON" -m pip install -e ".[dev]"
         env:
           PIP_CONSTRAINT: ${{ github.workspace }}/requirements/desktop-build-constraints.txt
 
