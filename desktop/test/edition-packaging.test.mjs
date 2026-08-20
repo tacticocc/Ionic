@@ -65,6 +65,10 @@ describe("Essential package identity", () => {
       enableEmbeddedAsarIntegrityValidation: true,
       onlyLoadAppFromAsar: true,
     });
+    assert.equal(
+      packageJson.build.linux.maintainer,
+      "Tactico Technologies <contact@tactico.cc>"
+    );
   });
 
   it("packages only Essential-staged engine and legal inventory resources", () => {

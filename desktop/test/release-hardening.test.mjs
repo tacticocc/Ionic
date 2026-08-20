@@ -5,7 +5,10 @@ import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { stageReleaseArtifacts } from "../scripts/stage-release-artifacts.mjs";
+import {
+  expectedArtifactNames,
+  stageReleaseArtifacts,
+} from "../scripts/stage-release-artifacts.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DESKTOP = path.resolve(HERE, "..");
@@ -75,6 +78,40 @@ describe("Essential release staging", () => {
     assert.throws(
       () => stageReleaseArtifacts({ target: "windows", desktopRoot }),
       /Unsupported release target/
+    );
+  });
+
+  it("uses Electron Builder's native Linux architecture names without widening the allowlist", () => {
+    const desktopRoot = fixture();
+    const output = path.join(desktopRoot, "dist", "essential");
+    fs.writeFileSync(
+      path.join(output, "Ionic-Essential-0.6.2-x86_64.AppImage"),
+      "appimage"
+    );
+    fs.writeFileSync(
+      path.join(output, "Ionic-Essential-0.6.2-amd64.deb"),
+      "deb"
+    );
+
+    assert.deepEqual(expectedArtifactNames("linux", "0.6.2"), [
+      "Ionic-Essential-0.6.2-x86_64.AppImage",
+      "Ionic-Essential-0.6.2-amd64.deb",
+    ]);
+    assert.deepEqual(expectedArtifactNames("mac", "0.6.2"), [
+      "Ionic-Essential-0.6.2-x64.dmg",
+      "Ionic-Essential-0.6.2-x64.zip",
+    ]);
+    assert.deepEqual(expectedArtifactNames("win", "0.6.2"), [
+      "Ionic-Essential-Setup-0.6.2-x64.exe",
+      "Ionic-Essential-0.6.2-x64.zip",
+    ]);
+    assert.deepEqual(
+      stageReleaseArtifacts({ target: "linux", arch: "x64", desktopRoot }).files,
+      [
+        "Ionic-Essential-0.6.2-x86_64.AppImage",
+        "Ionic-Essential-0.6.2-amd64.deb",
+        "artifacts.json",
+      ]
     );
   });
 });

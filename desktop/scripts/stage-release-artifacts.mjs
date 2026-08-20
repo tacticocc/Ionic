@@ -11,6 +11,13 @@ const PLATFORM_EXTENSIONS = Object.freeze({
   linux: Object.freeze(["AppImage", "deb"]),
 });
 
+function artifactArchitecture(target, extension, arch) {
+  if (target === "linux" && arch === "x64") {
+    return extension === "AppImage" ? "x86_64" : "amd64";
+  }
+  return arch;
+}
+
 function readPackage(desktopRoot) {
   const packagePath = path.join(desktopRoot, "package.json");
   const parsed = JSON.parse(fs.readFileSync(packagePath, "utf8"));
@@ -36,9 +43,12 @@ export function expectedArtifactNames(target, version, arch = "x64") {
   if (!new Set(["x64", "arm64"]).has(arch)) {
     throw new Error(`Unsupported release architecture: ${arch || "missing"}.`);
   }
-  return extensions.map((extension) => extension === "setup.exe"
-    ? `Ionic-Essential-Setup-${version}-${arch}.exe`
-    : `Ionic-Essential-${version}-${arch}.${extension}`);
+  return extensions.map((extension) => {
+    const artifactArch = artifactArchitecture(target, extension, arch);
+    return extension === "setup.exe"
+      ? `Ionic-Essential-Setup-${version}-${artifactArch}.exe`
+      : `Ionic-Essential-${version}-${artifactArch}.${extension}`;
+  });
 }
 
 function assertRegularArtifact(target, sourceRoot) {
