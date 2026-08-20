@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import StringIO
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -278,7 +279,7 @@ def test_local_path_candidates_are_bounded_non_recursive_and_quote_spaces(tmp_pa
         "alp", base_path=tmp_path, directories_only=True
     )
 
-    assert candidates == [('"alpha repo" ', "alpha repo\\")]
+    assert candidates == [('"alpha repo" ', f"alpha repo{os.sep}")]
     assert all("nested" not in insertion for insertion, _ in candidates)
     assert _local_path_candidates(
         "\\\\server\\share", base_path=tmp_path, directories_only=True
