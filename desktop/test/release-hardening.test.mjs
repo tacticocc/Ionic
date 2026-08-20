@@ -153,7 +153,12 @@ describe("Essential signed-release boundary", () => {
     assert.match(workflow, /github\.event_name != 'release'/);
     assert.match(workflow, /github\.event_name == 'release' && needs\.edition\.outputs\.edition == 'essential' && vars\.ENABLE_SIGNED_RELEASES == 'true'/);
     assert.match(workflow, /expectedTag = `v\$\{pkg\.version\}`/);
-    assert.match(workflow, /git merge-base --is-ancestor "\$GITHUB_SHA" "origin\/\$RELEASE_TARGET"/);
+    assert.match(workflow, /const releaseTarget = process\.env\.RELEASE_TARGET \|\| ""/);
+    assert.match(workflow, /\^\[0-9a-fA-F\]\{40\}\$/);
+    assert.match(workflow, /\[\[ "\$RELEASE_TARGET" != "main" \]\]/);
+    assert.match(workflow, /git merge-base --is-ancestor "\$RELEASE_TARGET" "origin\/main"/);
+    assert.match(workflow, /git merge-base --is-ancestor "\$GITHUB_SHA" "origin\/main"/);
+    assert.doesNotMatch(workflow, /origin\/\$RELEASE_TARGET/);
     assert.match(workflow, /npm run dist:win:signed/);
     assert.match(workflow, /secrets\.WINDOWS_CSC_LINK/);
     assert.match(workflow, /secrets\.WINDOWS_CSC_KEY_PASSWORD/);
