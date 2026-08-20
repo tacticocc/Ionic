@@ -780,12 +780,21 @@ def test_codex_app_server_review_uses_ephemeral_restricted_turn(
 
 def test_codex_dedicated_profile_is_not_the_user_codex_home(tmp_path: Path) -> None:
     profile = ionic_codex_profile_directory(
-        {"LOCALAPPDATA": str(tmp_path), "CODEX_HOME": str(tmp_path / "user-codex")}
+        {
+            "LOCALAPPDATA": str(tmp_path),
+            "XDG_DATA_HOME": str(tmp_path),
+            "HOME": str(tmp_path),
+            "CODEX_HOME": str(tmp_path / "user-codex"),
+        }
     )
 
-    assert profile == (
-        tmp_path / "Tactico Technologies" / "Ionic" / "CodexSubscription"
-    ).resolve()
+    if os.name == "nt":
+        expected = tmp_path
+    elif sys.platform == "darwin":
+        expected = tmp_path / "Library" / "Application Support"
+    else:
+        expected = tmp_path
+    assert profile == (expected / "Tactico Technologies" / "Ionic" / "CodexSubscription").resolve()
     assert profile != (tmp_path / "user-codex").resolve()
 
 

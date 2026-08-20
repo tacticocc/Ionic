@@ -166,8 +166,19 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Create isolated CLI build environment
+        shell: bash
+        run: |
+          python -m venv .desktop-build-venv
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            echo "IONIC_BUILD_PYTHON=$GITHUB_WORKSPACE/.desktop-build-venv/Scripts/python.exe" >> "$GITHUB_ENV"
+          else
+            echo "IONIC_BUILD_PYTHON=$GITHUB_WORKSPACE/.desktop-build-venv/bin/python" >> "$GITHUB_ENV"
+          fi
+
       - name: Install CLI build dependencies
-        run: python -m pip install -e ".[dev]"
+        shell: bash
+        run: "$IONIC_BUILD_PYTHON" -m pip install -e ".[dev]"
         env:
           PIP_CONSTRAINT: ${{ github.workspace }}/requirements/desktop-build-constraints.txt
 
@@ -228,8 +239,15 @@ jobs:
             throw "WINDOWS_CSC_KEY_PASSWORD is not configured; no official Windows release can be produced."
           }
 
+      - name: Create isolated CLI build environment
+        shell: bash
+        run: |
+          python -m venv .desktop-build-venv
+          echo "IONIC_BUILD_PYTHON=$GITHUB_WORKSPACE/.desktop-build-venv/Scripts/python.exe" >> "$GITHUB_ENV"
+
       - name: Install CLI build dependencies
-        run: python -m pip install -e ".[dev]"
+        shell: bash
+        run: "$IONIC_BUILD_PYTHON" -m pip install -e ".[dev]"
         env:
           PIP_CONSTRAINT: ${{ github.workspace }}/requirements/desktop-build-constraints.txt
 

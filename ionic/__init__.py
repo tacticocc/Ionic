@@ -6,7 +6,7 @@ Zero telemetry. Free forever.
 
 from __future__ import annotations
 
-__version__ = "0.6.1"
+__version__ = "0.6.2"
 
 from .compat import check_against_registry, check_compatibility, render_markdown
 from .config import Config

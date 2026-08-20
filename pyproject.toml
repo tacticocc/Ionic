@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "ionic"
 dynamic = ["version"]
 description = "The compatibility layer for multi-agent systems. Register agent contracts, detect semantic breakages before they ship."
+readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 keywords = ["agents", "mcp", "contracts", "compatibility", "llm", "multi-agent"]
@@ -41,7 +42,7 @@ dev = [
 
 [project.scripts]
 ionic = "ionic.cli:main"
-ionic-mcp = "ionic.mcp_server:main"
+ionic-mcp = "ionic.mcp_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/tacticocc/Ionic"
@@ -53,6 +54,17 @@ path = "ionic/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ionic"]
+
+[tool.hatch.build.targets.sdist]
+ignore-vcs = true
+include = [
+    "/ionic",
+    "/pyproject.toml",
+    "/README.md",
+    "/LICENSE",
+    "/TRADEMARKS.md",
+]
+
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

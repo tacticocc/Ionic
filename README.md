@@ -10,7 +10,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/tacticocc/Ionic">
-    <img src="brand/Ionic%20Icon%20BG.png" alt="Ionic logo" width="128" height="128">
+    <img src="https://raw.githubusercontent.com/tacticocc/Ionic/main/brand/Ionic%20Icon%20BG.png" alt="Ionic logo" width="128" height="128">
   </a>
 
   <h3 align="center">Ionic Essential</h3>
@@ -47,6 +47,7 @@
       <ul>
         <li><a href="#prerequisites">Prerequisites</a></li>
         <li><a href="#windows-desktop">Windows Desktop</a></li>
+        <li><a href="#install-the-cli-from-pypi">Install the CLI from PyPI</a></li>
         <li><a href="#install-from-source">Install From Source</a></li>
         <li><a href="#build-the-desktop-app">Build the Desktop App</a></li>
       </ul>
@@ -126,6 +127,22 @@ before running it:
 
 ```text
 7F4104CEAC355594BDA5DB11B60967262765337A34D8AF1F3EC05D5B36837F35
+```
+
+### Install the CLI from PyPI
+
+Install the Ionic 0.6.2 CLI from PyPI with:
+
+```sh
+python -m pip install ionic
+ionic version
+```
+
+Install the optional MCP integration with:
+
+```sh
+python -m pip install "ionic[mcp]"
+ionic serve
 ```
 
 ### Install From Source
