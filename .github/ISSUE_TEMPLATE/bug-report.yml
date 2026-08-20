@@ -24,7 +24,7 @@ body:
     attributes:
       label: Ionic version
       description: Use the About screen or run `ionic version`.
-      placeholder: 0.6.1
+      placeholder: 0.6.2
     validations:
       required: true
 

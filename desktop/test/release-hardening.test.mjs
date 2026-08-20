@@ -17,7 +17,7 @@ function fixture() {
   temporaryDirectories.push(desktopRoot);
   fs.writeFileSync(path.join(desktopRoot, "package.json"), JSON.stringify({
     ionicEdition: "essential",
-    version: "0.6.1",
+    version: "0.6.2",
     build: {
       artifactName: "Ionic-Essential-${version}-${arch}.${ext}",
       directories: { output: "dist/essential" },
@@ -26,8 +26,8 @@ function fixture() {
   }));
   const output = path.join(desktopRoot, "dist", "essential");
   fs.mkdirSync(path.join(output, "win-unpacked"), { recursive: true });
-  fs.writeFileSync(path.join(output, "Ionic-Essential-Setup-0.6.1-x64.exe"), "setup");
-  fs.writeFileSync(path.join(output, "Ionic-Essential-0.6.1-x64.zip"), "archive");
+  fs.writeFileSync(path.join(output, "Ionic-Essential-Setup-0.6.2-x64.exe"), "setup");
+  fs.writeFileSync(path.join(output, "Ionic-Essential-0.6.2-x64.zip"), "archive");
   fs.writeFileSync(path.join(output, "builder-debug.yml"), "C:\\private\\workspace");
   fs.writeFileSync(path.join(output, "latest.yml"), "stale update metadata");
   fs.writeFileSync(path.join(output, "Ionic-Essential-0.5.0-x64.zip"), "stale artifact");
@@ -49,8 +49,8 @@ describe("Essential release staging", () => {
     const desktopRoot = fixture();
     const staged = stageReleaseArtifacts({ target: "win", arch: "x64", desktopRoot });
     assert.deepEqual(staged.files, [
-      "Ionic-Essential-Setup-0.6.1-x64.exe",
-      "Ionic-Essential-0.6.1-x64.zip",
+      "Ionic-Essential-Setup-0.6.2-x64.exe",
+      "Ionic-Essential-0.6.2-x64.zip",
       "artifacts.json",
     ]);
     assert.deepEqual(fs.readdirSync(staged.directory).sort(), [...staged.files].sort());
@@ -59,7 +59,7 @@ describe("Essential release staging", () => {
     const manifest = JSON.parse(manifestText);
     assert.equal(manifest.schema_version, 1);
     assert.equal(manifest.edition, "essential");
-    assert.equal(manifest.version, "0.6.1");
+    assert.equal(manifest.version, "0.6.2");
     assert.deepEqual(manifest.artifacts.map(({ name }) => name), staged.files.slice(0, 2));
     assert.doesNotMatch(manifestText, /builder-debug|latest\.yml|win-unpacked|0\.5\.0|private|ionic-essential-release/i);
     assert.equal(fs.existsSync(path.join(staged.directory, "old-local-paths.txt")), false);
@@ -67,7 +67,7 @@ describe("Essential release staging", () => {
 
   it("fails closed when an allowlisted artifact is absent", () => {
     const desktopRoot = fixture();
-    fs.rmSync(path.join(desktopRoot, "dist", "essential", "Ionic-Essential-0.6.1-x64.zip"));
+    fs.rmSync(path.join(desktopRoot, "dist", "essential", "Ionic-Essential-0.6.2-x64.zip"));
     assert.throws(
       () => stageReleaseArtifacts({ target: "win", desktopRoot }),
       /Required release artifact is missing/
@@ -125,6 +125,11 @@ describe("Essential signed-release boundary", () => {
     assert.doesNotMatch(workflow, /gh release upload[^\n]*--clobber/);
     assert.equal((workflow.match(/PIP_CONSTRAINT:/g) || []).length, 3);
     assert.match(workflow, /requirements\/desktop-build-constraints\.txt/);
+    assert.equal(
+      (workflow.match(/"\$IONIC_BUILD_PYTHON" -m pip install -e "\.\[dev\]"/g) || []).length,
+      2
+    );
+    assert.doesNotMatch(workflow, /\$\{\{ env\.IONIC_BUILD_PYTHON \}\}/);
     const workflows = `${workflow}\n${ciWorkflow}`;
     assert.doesNotMatch(workflows, /uses:\s+actions\/[^@\s]+@v\d+/);
     for (const sha of [

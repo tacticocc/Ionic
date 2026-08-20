@@ -10,6 +10,9 @@ __pycache__/
 venv/
 /.desktop-build-venv/
 /desktop/.pyinstaller/
+/desktop/node_modules/
+/desktop/dist/
+/desktop/release-staging/
 /desktop/build/cli/
 /desktop/build/legal/
 /desktop/build/essential/

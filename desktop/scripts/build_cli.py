@@ -25,6 +25,7 @@ import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 from pathlib import Path
 
@@ -469,12 +470,37 @@ def _build_license_inventory(
         )
 
     python_license = None
-    for candidate in (
+    python_data = sysconfig.get_path("data")
+    python_stdlib = sysconfig.get_path("stdlib")
+    candidates = [
         Path(sys.base_prefix) / "LICENSE.txt",
         Path(sys.base_prefix) / "LICENSE",
         Path(sys.prefix) / "LICENSE.txt",
         Path(sys.prefix) / "LICENSE",
-    ):
+    ]
+    if python_data:
+        candidates.extend(
+            [Path(python_data) / "LICENSE.txt", Path(python_data) / "LICENSE"]
+        )
+    if python_stdlib:
+        candidates.extend(
+            [Path(python_stdlib) / "LICENSE.txt", Path(python_stdlib) / "LICENSE"]
+        )
+    candidates.extend(
+        [
+            Path(sys.base_prefix)
+            / "share"
+            / "doc"
+            / f"python{sys.version_info.major}.{sys.version_info.minor}"
+            / "LICENSE.txt",
+            Path(sys.base_prefix)
+            / "Resources"
+            / "English.lproj"
+            / "Documentation"
+            / "License.rtf",
+        ]
+    )
+    for candidate in candidates:
         if candidate.is_file():
             runtime_dir = licenses_root / f"Python-{platform.python_version()}"
             runtime_dir.mkdir(parents=True, exist_ok=True)
