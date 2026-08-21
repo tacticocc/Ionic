@@ -134,7 +134,7 @@ before running it:
 
 ### Install the CLI from PyPI
 
-Install the Ionic 0.7.1 CLI from PyPI with:
+Install the Ionic 0.7.2 CLI from PyPI with:
 
 ```sh
 python -m pip install ionic

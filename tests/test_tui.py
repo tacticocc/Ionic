@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 from io import StringIO
 import os
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 
+import ionic.tui as tui_module
 from ionic.config import SUBSCRIPTION_CONSENT_VERSION
 from ionic.tui import (
     MAX_COMMAND_CHARS,
@@ -20,7 +23,11 @@ from ionic.tui import (
     run_tui,
     welcome_screen,
     _local_path_candidates,
+    _BoundedRedactingCapture,
     _plain_terminal_output,
+    _run_cli_plan,
+    _windows_system_executable,
+    _wrap_display_text,
 )
 
 
@@ -65,7 +72,7 @@ def test_wide_welcome_matches_launch_card_proportions_and_upper_third_rhythm():
     assert lines.index(border) >= 7
     assert len(visible) <= 13
     assert ".------." in rendered
-    assert "IONIC ESSENTIAL  0.7.1" in rendered
+    assert "IONIC ESSENTIAL  0.7.2" in rendered
     assert "___   ___" not in rendered
     assert all(len(line) <= 161 for line in lines)
 
@@ -88,16 +95,16 @@ def test_fullscreen_welcome_uses_tui_borders_and_canonical_terminal_brand():
     assert "######" not in rendered
     assert rendered.encode("cp950")
     assert "IONIC ESSENTIAL" not in visible[0]
-    assert "IONIC ESSENTIAL  0.7.1" in rendered
+    assert "IONIC ESSENTIAL  0.7.2" in rendered
     assert all(wcswidth(line) <= 161 for line in rendered.splitlines())
 
     compact = welcome_screen(42, 24, box_drawing=True)
-    assert "●═○  IONIC ESSENTIAL  0.7.1" in compact
+    assert "●═○  IONIC ESSENTIAL  0.7.2" in compact
     assert compact.count("IONIC ESSENTIAL") == 1
 
     narrow = welcome_screen(20, 24, box_drawing=True)
     assert "●═○  IONIC" in narrow
-    assert "ESSENTIAL 0.7.1" in narrow
+    assert "ESSENTIAL 0.7.2" in narrow
 
 
 def test_fullscreen_workspace_caption_respects_cjk_and_emoji_cell_width(monkeypatch):
@@ -348,6 +355,206 @@ def test_cli_output_strips_terminal_styling_before_transcript_rendering():
     assert _plain_terminal_output("\x1b[1;36m0.7\x1b[0m") == "0.7"
 
 
+def test_windows_crlf_output_keeps_content_when_ansi_is_removed():
+    assert _plain_terminal_output("first\r\nsecond\r\n") == "first\nsecond\n"
+
+
+def test_display_wrap_produces_real_terminal_rows_for_wide_characters():
+    from wcwidth import wcswidth
+
+    rendered = _wrap_display_text("abcdefghijk\n使用者路徑abcdef", 8)
+
+    assert rendered.splitlines()
+    assert all(wcswidth(line) <= 8 for line in rendered.splitlines())
+
+
+def test_default_dispatcher_prepares_cli_work_without_invoking_it(monkeypatch):
+    dispatcher = CommandDispatcher(environ={})
+    monkeypatch.setattr(
+        dispatcher,
+        "_invoker",
+        lambda argv, env: (_ for _ in ()).throw(AssertionError("must not run inline")),
+    )
+
+    plan = dispatcher.prepare("/version")
+
+    assert plan.kind == "invoke"
+    assert plan.argv == ("version",)
+
+
+def test_async_cli_plan_runs_without_a_nested_rich_border():
+    dispatcher = CommandDispatcher(environ=os.environ)
+    plan = dispatcher.prepare("/dashboard")
+
+    result = asyncio.run(
+        _run_cli_plan(
+            dispatcher,
+            plan,
+            columns=160,
+            rows=40,
+            process_slot={"process": None},
+        )
+    )
+
+    assert result.exit_code == 0
+    assert result.output.startswith("Ionic dashboard\n\nversion")
+    assert "project root" in result.output
+    assert "Session repositories:" in result.output
+    assert not any(character in result.output for character in "╭╮╰╯│")
+
+
+def test_pre_cancelled_cli_plan_never_spawns_a_process(monkeypatch):
+    async def fail_spawn(*args, **kwargs):
+        raise AssertionError("a pre-cancelled command must not spawn")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fail_spawn)
+    dispatcher = CommandDispatcher(environ=os.environ)
+    plan = dispatcher.prepare("/version")
+
+    async def scenario():
+        cancel_event = asyncio.Event()
+        cancel_event.set()
+        return await _run_cli_plan(
+            dispatcher,
+            plan,
+            columns=80,
+            rows=24,
+            process_slot={"process": None, "cancel_event": cancel_event},
+        )
+
+    result = asyncio.run(scenario())
+
+    assert result.exit_code == 130
+    assert result.output == "Command cancelled."
+
+
+def test_cli_plan_cancellation_is_idempotent_and_keeps_runner_alive(monkeypatch):
+    monkeypatch.setattr(
+        tui_module,
+        "_child_command",
+        lambda argv: [sys.executable, "-c", "import time; time.sleep(30)"],
+    )
+    dispatcher = CommandDispatcher(environ=os.environ)
+    plan = dispatcher.prepare("/version")
+
+    async def scenario():
+        cancel_event = asyncio.Event()
+        slot = {"process": None, "cancel_event": cancel_event}
+        task = asyncio.create_task(
+            _run_cli_plan(
+                dispatcher,
+                plan,
+                columns=80,
+                rows=24,
+                process_slot=slot,
+            )
+        )
+        for _ in range(200):
+            if slot["process"] is not None:
+                break
+            await asyncio.sleep(0.01)
+        assert slot["process"] is not None
+        cancel_event.set()
+        cancel_event.set()
+        result = await asyncio.wait_for(task, timeout=8)
+        return result, task.cancelled(), slot["process"]
+
+    result, task_cancelled, active_process = asyncio.run(scenario())
+
+    assert result.exit_code == 130
+    assert result.output == "Command cancelled."
+    assert task_cancelled is False
+    assert active_process is None
+
+
+def test_subprocess_output_redacts_a_key_before_the_byte_cap(monkeypatch):
+    secret = "sk-boundary-secret"
+    monkeypatch.setattr(tui_module, "MAX_SUBPROCESS_OUTPUT_BYTES", 64)
+    monkeypatch.setattr(
+        tui_module,
+        "_child_command",
+        lambda argv: [
+            sys.executable,
+            "-c",
+            "import os,sys;sys.stdout.write('x'*61+os.environ['OPENAI_API_KEY'])",
+        ],
+    )
+    dispatcher = CommandDispatcher(
+        environ={**os.environ, "OPENAI_API_KEY": secret}
+    )
+    plan = dispatcher.prepare("/version")
+
+    result = asyncio.run(
+        _run_cli_plan(
+            dispatcher,
+            plan,
+            columns=80,
+            rows=24,
+            process_slot={"process": None},
+        )
+    )
+
+    assert result.exit_code == 0
+    assert secret not in result.output
+    assert secret[:8] not in result.output
+    assert "output truncated" in result.output
+
+
+def test_repeated_keys_cannot_move_a_later_partial_key_under_the_cap(monkeypatch):
+    secret = "sk-boundary-secret"
+    monkeypatch.setattr(tui_module, "MAX_SUBPROCESS_OUTPUT_BYTES", 64)
+    monkeypatch.setattr(
+        tui_module,
+        "_child_command",
+        lambda argv: [
+            sys.executable,
+            "-c",
+            "import os,sys;s=os.environ['OPENAI_API_KEY'];sys.stdout.write(s*3+'x'*23+s)",
+        ],
+    )
+    dispatcher = CommandDispatcher(
+        environ={**os.environ, "OPENAI_API_KEY": secret}
+    )
+    plan = dispatcher.prepare("/version")
+
+    result = asyncio.run(
+        _run_cli_plan(
+            dispatcher,
+            plan,
+            columns=80,
+            rows=24,
+            process_slot={"process": None},
+        )
+    )
+
+    assert result.exit_code == 0
+    assert result.output.count("[REDACTED]") == 4
+    assert secret not in result.output
+    assert secret[:8] not in result.output
+
+
+def test_bounded_redactor_never_ends_on_a_possible_credential_prefix():
+    secret = b"sk-boundary-secret"
+    capture = _BoundedRedactingCapture((secret,), 5)
+
+    capture.feed(b"sk-boX-more-output")
+    capture.finish()
+
+    assert bytes(capture.output) == b""
+    assert capture.omitted > 0
+
+
+def test_windows_taskkill_is_resolved_outside_cwd_and_path_search():
+    if os.name != "nt":
+        return
+    taskkill = _windows_system_executable("taskkill.exe")
+
+    assert taskkill is not None
+    assert taskkill.is_absolute()
+    assert taskkill.name.casefold() == "taskkill.exe"
+    assert taskkill.parent.name.casefold() == "system32"
+
+
 def test_completion_is_deterministic_and_non_mutating():
     assert command_candidates("/wo") == ["/workspace check", "/workspace scan", "/workspace sync"]
     assert "/status" in command_candidates("/")
@@ -373,8 +580,8 @@ def test_dashboard_reuses_status_and_reports_session_context(tmp_path):
     assert dispatcher.dispatch(f'/repo add web "{repository}"').exit_code == 0
     result = dispatcher.dispatch("/dashboard")
 
-    assert calls == [["status"]]
-    assert result.argv == ("status",)
+    assert calls == [["status", "--json"]]
+    assert result.argv == ("status", "--json")
     assert "Ionic dashboard" in result.output
     assert "registry clean" in result.output
     assert "web =" in result.output
@@ -579,8 +786,9 @@ def test_fullscreen_layout_keeps_context_scrollback_composer_and_status_docked(m
         for window in captured["layout"].find_all_windows()
         if window.content is welcome_control
     )
-    assert welcome_control.focus_on_click()
-    assert welcome_window.right_margins
+    assert not welcome_control.focus_on_click()
+    assert not welcome_window.wrap_lines()
+    assert not welcome_window.right_margins
     welcome_buffer = welcome_control.buffer
     titles = []
     captured["before_render"](
@@ -592,7 +800,7 @@ def test_fullscreen_layout_keeps_context_scrollback_composer_and_status_docked(m
         )
     )
     assert titles == [CommandDispatcher().terminal_title]
-    assert "IONIC ESSENTIAL  0.7.1" in welcome_buffer.text
+    assert "IONIC ESSENTIAL  0.7.2" in welcome_buffer.text
     assert max(map(len, welcome_buffer.text.splitlines())) <= 161
     assert welcome_buffer.text.splitlines().index(
         next(line for line in welcome_buffer.text.splitlines() if line.strip())
@@ -731,7 +939,7 @@ def test_fullscreen_layout_keeps_context_scrollback_composer_and_status_docked(m
     welcome_buffer.cursor_position = len(welcome_buffer.text)
     layout.focus(composer_control)
     welcome_window.vertical_scroll = 55
-    welcome_window.render_info = SimpleNamespace(first_visible_line=lambda: 55)
+    welcome_window.render_info = SimpleNamespace(window_height=18)
     page_up_binding = next(
         binding
         for binding in captured["key_bindings"].bindings
@@ -746,20 +954,50 @@ def test_fullscreen_layout_keeps_context_scrollback_composer_and_status_docked(m
             )
         )
     )
+    assert welcome_window.vertical_scroll == 38
+    assert welcome_buffer.document.cursor_position_row >= welcome_window.vertical_scroll
+    assert layout.current_control is composer_control
+
+    scroll_bottom_binding = next(
+        binding
+        for binding in captured["key_bindings"].bindings
+        if binding.handler.__name__ == "scroll_to_bottom"
+    )
+    scroll_top_binding = next(
+        binding
+        for binding in captured["key_bindings"].bindings
+        if binding.handler.__name__ == "scroll_to_top"
+    )
+    scroll_event = SimpleNamespace(
+        app=SimpleNamespace(layout=layout, invalidate=lambda: None)
+    )
+    scroll_bottom_binding.handler(scroll_event)
+    assert welcome_window.vertical_scroll == 71
+    assert welcome_buffer.document.cursor_position_row == 88
+    assert layout.current_control is composer_control
+    scroll_top_binding.handler(scroll_event)
     assert welcome_window.vertical_scroll == 0
-    assert welcome_buffer.document.cursor_position_row == 55
+    assert welcome_buffer.document.cursor_position_row == 0
+    assert layout.current_control is composer_control
+
+    wheel_down_binding = next(
+        binding
+        for binding in captured["key_bindings"].bindings
+        if binding.handler.__name__ == "scroll_wheel_down"
+    )
+    wheel_down_binding.handler(scroll_event)
+    assert welcome_window.vertical_scroll == 3
     assert layout.current_control is composer_control
 
     welcome_window.render_info = None
     layout.focus(welcome_control)
-    row_before = welcome_buffer.document.cursor_position_row
     scroll_up_binding = next(
         binding
         for binding in captured["key_bindings"].bindings
         if binding.handler.__name__ == "scroll_line_up"
     )
     scroll_up_binding.handler(SimpleNamespace(app=SimpleNamespace(layout=layout)))
-    assert welcome_buffer.document.cursor_position_row == row_before - 1
+    assert welcome_window.vertical_scroll == 2
 
 
 def test_fullscreen_terminal_failure_degrades_to_plain_shell(monkeypatch):

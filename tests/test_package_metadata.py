@@ -17,7 +17,7 @@ def test_pypi_metadata_uses_the_repository_readme_and_current_version() -> None:
 
     assert project["readme"] == "README.md"
     assert (REPO_ROOT / project["readme"]).is_file()
-    assert __version__ == "0.7.1"
+    assert __version__ == "0.7.2"
     assert "prompt-toolkit>=3.0.53" in project["dependencies"]
 
 
