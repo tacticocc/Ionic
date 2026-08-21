@@ -17,13 +17,18 @@ Ionic remains useful in CI and minimal Python installs.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable, Mapping
+from contextlib import suppress
 from dataclasses import dataclass, field, replace
+import json
 import os
 from pathlib import Path
 import re
 import shlex
 import shutil
+import signal
+import subprocess
 import sys
 from types import SimpleNamespace
 from typing import Any, TextIO
@@ -41,6 +46,7 @@ MAX_PATH_COMPLETIONS = 50
 MAX_PATH_CHARS = 4_096
 MAX_MODEL_CHARS = 200
 MAX_API_KEY_CHARS = 16_384
+MAX_SUBPROCESS_OUTPUT_BYTES = 1_048_576
 
 _REPOSITORY_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}\Z")
 _DIRECT_REVIEW_PROVIDERS = frozenset({"anthropic", "openai", "google", "xai", "local"})
@@ -677,6 +683,30 @@ def _pad_display(value: str, width: int) -> str:
     return f"{clipped}{' ' * max(0, width - max(0, wcswidth(clipped)))}"
 
 
+def _wrap_display_text(value: str, width: int) -> str:
+    """Hard-wrap plain transcript text by terminal cells, not code points."""
+    from wcwidth import wcwidth
+
+    limit = max(1, width)
+    rendered: list[str] = []
+    for source_line in value.expandtabs(4).split("\n"):
+        if not source_line:
+            rendered.append("")
+            continue
+        cells = 0
+        current: list[str] = []
+        for character in source_line:
+            character_width = max(0, wcwidth(character))
+            if current and cells + character_width > limit:
+                rendered.append("".join(current))
+                current = []
+                cells = 0
+            current.append(character)
+            cells += character_width
+        rendered.append("".join(current))
+    return "\n".join(rendered)
+
+
 def _path_completion_slot(text: str) -> tuple[int, str, bool] | None:
     """Return a bounded, explicitly path-bearing command-bar slot."""
     patterns = (
@@ -808,7 +838,8 @@ def _plain_terminal_output(value: str) -> str:
     """Remove styling codes before rendering CLI output inside TextArea."""
     from rich.text import Text
 
-    return Text.from_ansi(value).plain
+    normalized = value.replace("\r\n", "\n").replace("\r", "\n")
+    return Text.from_ansi(normalized).plain
 
 
 def _default_invoke(argv: list[str], environ: Mapping[str, str] | None) -> tuple[int, str]:
@@ -836,6 +867,277 @@ def _result_from_invocation(value: Any, argv: list[str]) -> DispatchResult:
     return DispatchResult("command", str(output), int(code), tuple(argv))
 
 
+def _child_command(argv: tuple[str, ...]) -> list[str]:
+    """Return an exact argv vector for the installed or frozen Ionic CLI."""
+    if getattr(sys, "frozen", False):
+        return [sys.executable, *argv]
+    return [sys.executable, "-m", "ionic.cli", *argv]
+
+
+def _windows_system_executable(name: str) -> Path | None:
+    """Resolve a Windows system executable without searching an untrusted cwd/PATH."""
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes
+
+        buffer = ctypes.create_unicode_buffer(32_768)
+        length = ctypes.windll.kernel32.GetSystemDirectoryW(buffer, len(buffer))
+        if not length or length >= len(buffer):
+            return None
+        candidate = Path(buffer.value) / name
+        return candidate if candidate.is_file() else None
+    except (AttributeError, OSError, ValueError):
+        return None
+
+
+class _BoundedRedactingCapture:
+    """Stream exact credentials out before bounding retained subprocess output."""
+
+    _replacement = b"[REDACTED]"
+
+    def __init__(self, credentials: tuple[bytes, ...], limit: int) -> None:
+        self._credentials = tuple(
+            sorted({value for value in credentials if value}, key=len, reverse=True)
+        )
+        self._maximum_credential = max(map(len, self._credentials), default=0)
+        self._limit = max(0, limit)
+        self._pending = bytearray()
+        self.output = bytearray()
+        self.omitted = 0
+
+    def feed(self, chunk: bytes) -> None:
+        self._pending.extend(chunk)
+        self._drain(final=False)
+
+    def finish(self) -> None:
+        self._drain(final=True)
+        if self.omitted:
+            self._trim_possible_credential_prefix()
+
+    def _emit(self, value: bytes) -> None:
+        remaining = self._limit - len(self.output)
+        if remaining > 0:
+            self.output.extend(value[:remaining])
+        self.omitted += max(0, len(value) - max(0, remaining))
+
+    def _earliest_match(self, data: bytes, start: int) -> tuple[int, bytes] | None:
+        matches = (
+            (index, -len(credential), credential)
+            for credential in self._credentials
+            if (index := data.find(credential, start)) >= 0
+        )
+        try:
+            index, _, credential = min(matches)
+        except ValueError:
+            return None
+        return index, credential
+
+    def _drain(self, *, final: bool) -> None:
+        data = bytes(self._pending)
+        if not data:
+            return
+        safe_end = (
+            len(data)
+            if final or not self._credentials
+            else max(0, len(data) - self._maximum_credential + 1)
+        )
+        cursor = 0
+        while cursor < safe_end:
+            match = self._earliest_match(data, cursor)
+            if match is None or match[0] >= safe_end:
+                self._emit(data[cursor:safe_end])
+                cursor = safe_end
+                break
+            index, credential = match
+            self._emit(data[cursor:index])
+            self._emit(self._replacement)
+            cursor = index + len(credential)
+        if final and cursor < len(data):
+            while cursor < len(data):
+                match = self._earliest_match(data, cursor)
+                if match is None:
+                    self._emit(data[cursor:])
+                    cursor = len(data)
+                    break
+                index, credential = match
+                self._emit(data[cursor:index])
+                self._emit(self._replacement)
+                cursor = index + len(credential)
+        self._pending[:] = data[cursor:]
+
+    def _trim_possible_credential_prefix(self) -> None:
+        """Never let the byte cap expose a suffix that could complete into a key."""
+        while self.output:
+            removal = 0
+            rendered = bytes(self.output)
+            for credential in self._credentials:
+                maximum = min(len(credential), len(rendered))
+                for size in range(maximum, 0, -1):
+                    if rendered.endswith(credential[:size]):
+                        removal = max(removal, size)
+                        break
+            if not removal:
+                return
+            del self.output[-removal:]
+            self.omitted += removal
+
+
+async def _terminate_process_tree(process: Any) -> None:
+    """Stop an active CLI process and any runtime child it may have started."""
+    if process is None or process.returncode is not None:
+        return
+    if os.name == "nt":
+        try:
+            os.kill(process.pid, signal.CTRL_BREAK_EVENT)
+            await asyncio.wait_for(process.wait(), timeout=0.75)
+            return
+        except (OSError, ProcessLookupError, ValueError, asyncio.TimeoutError):
+            pass
+        taskkill = _windows_system_executable("taskkill.exe")
+        if taskkill is not None:
+            killer = None
+            try:
+                killer = await asyncio.create_subprocess_exec(
+                    str(taskkill),
+                    "/PID",
+                    str(process.pid),
+                    "/T",
+                    "/F",
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL,
+                )
+                code = await asyncio.wait_for(killer.wait(), timeout=3.0)
+                if code == 0:
+                    try:
+                        await asyncio.wait_for(process.wait(), timeout=2.0)
+                    except asyncio.TimeoutError:
+                        pass
+                    if process.returncode is not None:
+                        return
+            except (OSError, asyncio.TimeoutError):
+                if killer is not None and killer.returncode is None:
+                    killer.kill()
+                    with suppress(OSError, asyncio.TimeoutError):
+                        await asyncio.wait_for(killer.wait(), timeout=1.0)
+        if process.returncode is None:
+            with suppress(OSError, ProcessLookupError):
+                process.kill()
+        with suppress(OSError, ProcessLookupError, asyncio.TimeoutError):
+            await asyncio.wait_for(process.wait(), timeout=2.0)
+        return
+    try:
+        os.killpg(process.pid, signal.SIGINT)
+        await asyncio.wait_for(process.wait(), timeout=0.75)
+        return
+    except (OSError, ProcessLookupError, asyncio.TimeoutError):
+        pass
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except (OSError, ProcessLookupError):
+        process.kill()
+    await process.wait()
+
+
+async def _run_cli_plan(
+    dispatcher: "CommandDispatcher",
+    plan: DispatchResult,
+    *,
+    columns: int,
+    rows: int,
+    process_slot: dict[str, Any],
+) -> DispatchResult:
+    """Execute one accepted CLI operation without blocking prompt-toolkit."""
+    cancel_event = process_slot.get("cancel_event")
+    if cancel_event is not None and cancel_event.is_set():
+        return DispatchResult("command", "Command cancelled.", 130, plan.argv)
+    environment = dispatcher.invocation_environment()
+    environment.update(
+        {
+            "COLUMNS": str(max(20, min(120, columns - 2))),
+            "LINES": str(max(12, rows)),
+            "IONIC_NO_TUI": "1",
+            "NO_COLOR": "1",
+            "PYTHONIOENCODING": "utf-8",
+        }
+    )
+    kwargs: dict[str, Any] = {}
+    if os.name == "nt":
+        kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        kwargs["start_new_session"] = True
+    process = await asyncio.create_subprocess_exec(
+        *_child_command(plan.argv),
+        cwd=str(dispatcher.base_path),
+        env=environment,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        **kwargs,
+    )
+    process_slot["process"] = process
+    capture = _BoundedRedactingCapture(
+        dispatcher.review_credential_bytes(), MAX_SUBPROCESS_OUTPUT_BYTES
+    )
+
+    async def capture_output() -> int:
+        assert process.stdout is not None
+        while True:
+            chunk = await process.stdout.read(16_384)
+            if not chunk:
+                break
+            capture.feed(chunk)
+        capture.finish()
+        return await process.wait()
+
+    execution_task = asyncio.create_task(capture_output())
+    cancellation_task = (
+        asyncio.create_task(cancel_event.wait()) if cancel_event is not None else None
+    )
+    cancelled = False
+    try:
+        if cancellation_task is None:
+            exit_code = await execution_task
+        else:
+            done, _ = await asyncio.wait(
+                {execution_task, cancellation_task},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if cancellation_task in done and cancel_event.is_set():
+                cancelled = True
+                await _terminate_process_tree(process)
+                try:
+                    exit_code = await asyncio.wait_for(execution_task, timeout=2.0)
+                except asyncio.TimeoutError:
+                    execution_task.cancel()
+                    with suppress(asyncio.CancelledError, OSError):
+                        await execution_task
+                    exit_code = 130
+            else:
+                exit_code = await execution_task
+    except asyncio.CancelledError:
+        cancelled = True
+        await asyncio.shield(_terminate_process_tree(process))
+        with suppress(asyncio.CancelledError, OSError):
+            await asyncio.shield(execution_task)
+        return DispatchResult("command", "Command cancelled.", 130, plan.argv)
+    finally:
+        if cancellation_task is not None:
+            cancellation_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await cancellation_task
+        process_slot["process"] = None
+    if cancelled:
+        return DispatchResult("command", "Command cancelled.", 130, plan.argv)
+    output = _plain_terminal_output(capture.output.decode("utf-8", errors="replace"))
+    output = dispatcher.redact_review_credentials(output)
+    if capture.omitted:
+        output, additionally_omitted = dispatcher.trim_review_credential_prefix(output)
+        capture.omitted += additionally_omitted
+        output += f"\n[output truncated: {capture.omitted} later bytes omitted]"
+    return dispatcher.complete_invocation(plan, exit_code, output)
+
+
 class CommandDispatcher:
     """Programmatic slash-command dispatcher used by the interactive shell.
 
@@ -850,12 +1152,14 @@ class CommandDispatcher:
         environ: Mapping[str, str] | None = None,
         base_path: Path | None = None,
     ) -> None:
+        self._uses_default_invoker = invoker is None
         self._invoker = invoker or _default_invoke
         self._environ = dict(environ if environ is not None else os.environ)
         self._base_path = (base_path or Path.cwd()).resolve()
         self._repositories: dict[str, SessionRepository] = {}
         self._selected_repository_id: str | None = None
         self._subscription_consent_runtime: str | None = None
+        self._planning = False
 
     @property
     def repositories(self) -> tuple[SessionRepository, ...]:
@@ -924,6 +1228,8 @@ class CommandDispatcher:
         )
 
     def _invoke(self, argv: list[str]) -> DispatchResult:
+        if self._planning:
+            return DispatchResult("invoke", argv=tuple(argv))
         try:
             result = _result_from_invocation(self._invoker(argv, self._environ), argv)
             safe_output = self._redact_review_credentials(result.output)
@@ -938,17 +1244,84 @@ class CommandDispatcher:
                 tuple(argv),
             )
 
-    def _redact_review_credentials(self, text: str) -> str:
-        safe = text
+    def prepare(self, line: str) -> DispatchResult:
+        """Resolve one TUI submission without running a CLI-backed operation."""
+        if not self._uses_default_invoker:
+            return self.dispatch(line)
+        if self._planning:
+            return DispatchResult("error", "Ionic is already preparing a command.", 1)
+        self._planning = True
+        try:
+            return self.dispatch(line)
+        finally:
+            self._planning = False
+
+    def invocation_environment(self) -> dict[str, str]:
+        """Return an isolated child environment for one accepted operation."""
+        return dict(self._environ)
+
+    def complete_invocation(
+        self,
+        plan: DispatchResult,
+        exit_code: int,
+        output: str,
+    ) -> DispatchResult:
+        """Turn one subprocess result back into a redacted TUI result."""
+        safe_output = self._redact_review_credentials(output)
+        result = DispatchResult("command", safe_output, exit_code, plan.argv)
+        if plan.kind == "invoke-dashboard" and not exit_code:
+            return self._format_dashboard_result(result)
+        if plan.kind == "invoke-semantic-status" and not exit_code:
+            return replace(
+                result,
+                output=(
+                    "Semantic review is opt-in per check; configuration alone sends nothing.\n\n"
+                    + result.output.rstrip()
+                ),
+            )
+        return result
+
+    def _review_credential_values(self) -> tuple[str, ...]:
+        """Return configured non-empty credentials without exposing them to UI state."""
         names = {
             *_REVIEW_CREDENTIAL_ENV.values(),
             "GOOGLE_API_KEY",
             "ANTHROPIC_AUTH_TOKEN",
         }
-        for name in names:
-            value = self._environ.get(name)
-            if value:
-                safe = safe.replace(value, "[REDACTED]")
+        return tuple(
+            value for name in names if (value := self._environ.get(name))
+        )
+
+    def review_credential_bytes(self) -> tuple[bytes, ...]:
+        """Return exact UTF-8 patterns for the bounded subprocess redactor."""
+        return tuple(value.encode("utf-8") for value in self._review_credential_values())
+
+    def redact_review_credentials(self, text: str) -> str:
+        """Remove configured review credentials before output is bounded or rendered."""
+        return self._redact_review_credentials(text)
+
+    def trim_review_credential_prefix(self, text: str) -> tuple[str, int]:
+        """Drop a truncated suffix that could be completed into a configured key."""
+        removed = 0
+        credentials = self._review_credential_values()
+        while text:
+            removal = 0
+            for credential in credentials:
+                maximum = min(len(credential), len(text))
+                for size in range(maximum, 0, -1):
+                    if text.endswith(credential[:size]):
+                        removal = max(removal, size)
+                        break
+            if not removal:
+                break
+            removed += len(text[-removal:].encode("utf-8"))
+            text = text[:-removal]
+        return text, removed
+
+    def _redact_review_credentials(self, text: str) -> str:
+        safe = text
+        for value in self._review_credential_values():
+            safe = safe.replace(value, "[REDACTED]")
         return safe
 
     def _repository_listing(self) -> str:
@@ -1066,15 +1439,48 @@ class CommandDispatcher:
             enriched.extend(("--repo", f"{repository.repository_id}={repository.path}"))
         return enriched
 
+    def _format_dashboard_result(self, result: DispatchResult) -> DispatchResult:
+        """Render structured status as transcript rows instead of a nested Rich panel."""
+        try:
+            payload = json.loads(result.output)
+            registry = payload["registry"]
+            judge = payload["judge"]
+            drift = payload["drift"]
+            counts = drift.get("counts", {})
+            stale = drift.get("stale", [])
+            rows = (
+                ("version", payload["version"]),
+                ("project root", payload["project_root"]),
+                ("registry", registry["path"]),
+                ("contracts", registry["contracts"]),
+                ("dependencies", registry["dependencies"]),
+                ("revisions", registry["revisions"]),
+                ("judge", judge["description"]),
+                ("fail on", payload["fail_on"]),
+                (
+                    "drift",
+                    f"{len(stale)} stale | "
+                    + ", ".join(f"{name} {value}" for name, value in sorted(counts.items())),
+                ),
+                ("telemetry", payload["telemetry"]),
+            )
+            width = max(len(label) for label, _ in rows)
+            body = "\n".join(f"{label.ljust(width)}  {value}" for label, value in rows)
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            body = result.output.rstrip()
+        overview = self._repository_listing()
+        combined = "Ionic dashboard\n\n" + body + "\n\n" + overview
+        return replace(result, output=combined)
+
     def _dispatch_dashboard(self, argv: list[str]) -> DispatchResult:
-        status_argv = ["status", *argv[1:]]
+        wants_help = any(token in {"--help", "-h"} for token in argv[1:])
+        status_argv = ["status", *(() if wants_help else ("--json",)), *argv[1:]]
         result = self._invoke(status_argv)
+        if result.kind == "invoke":
+            return replace(result, kind="invoke-dashboard")
         if result.exit_code or "--help" in status_argv:
             return result
-        output = result.output.rstrip()
-        overview = self._repository_listing()
-        combined = "Ionic dashboard\n" + (f"\n{output}\n" if output else "\n") + f"\n{overview}"
-        return DispatchResult("command", combined, 0, tuple(status_argv))
+        return self._format_dashboard_result(result)
 
     def _dispatch_semantic(self, argv: list[str]) -> DispatchResult:
         if len(argv) == 1 or (len(argv) == 2 and argv[1] in {"--help", "help"}):
@@ -1083,6 +1489,8 @@ class CommandDispatcher:
 
         if action == "status" and len(argv) == 2:
             result = self._invoke(["status"])
+            if result.kind == "invoke":
+                return replace(result, kind="invoke-semantic-status")
             if result.exit_code:
                 return result
             return DispatchResult(
@@ -1416,12 +1824,6 @@ def run_tui(
         from prompt_toolkit.filters import Condition
         from prompt_toolkit.history import History
         from prompt_toolkit.key_binding import KeyBindings
-        from prompt_toolkit.key_binding.bindings.scroll import (
-            scroll_one_line_down as toolkit_scroll_one_line_down,
-            scroll_one_line_up as toolkit_scroll_one_line_up,
-            scroll_page_down as toolkit_scroll_page_down,
-            scroll_page_up as toolkit_scroll_page_up,
-        )
         from prompt_toolkit.keys import Keys
         from prompt_toolkit.layout import ConditionalContainer, HSplit, Layout, VSplit, Window
         from prompt_toolkit.layout.controls import FormattedTextControl
@@ -1655,13 +2057,14 @@ def run_tui(
     terminal_size = shutil.get_terminal_size(fallback=(80, 24))
     original_terminal_title = _current_console_title()
     colors = not bool(env.get("NO_COLOR"))
+    initial_columns = width or terminal_size.columns
     output_area = TextArea(
-        text=welcome_screen(width, terminal_size.lines, box_drawing=True),
+        text=welcome_screen(max(20, initial_columns - 2), terminal_size.lines, box_drawing=True),
         read_only=True,
-        scrollbar=True,
+        scrollbar=False,
         focusable=True,
-        focus_on_click=True,
-        wrap_lines=True,
+        focus_on_click=False,
+        wrap_lines=False,
         lexer=IonicOutputLexer(),
         style="class:transcript" if colors else "",
     )
@@ -1687,7 +2090,16 @@ def run_tui(
     session_status = {"label": "READY", "detail": "exact Ionic operations"}
     secret_mode: dict[str, str | None] = {"provider": None}
     last_terminal_title: dict[str, str | None] = {"value": None}
+    rendered_width = {"value": max(20, initial_columns - 2)}
+    command_run: dict[str, Any] = {
+        "task": None,
+        "process": None,
+        "cancel_event": None,
+        "exit_after_cancel": False,
+    }
     secret_active = Condition(lambda: secret_mode["provider"] is not None)
+    command_running = Condition(lambda: command_run["task"] is not None)
+    command_idle = ~command_running
 
     def current_columns() -> int:
         try:
@@ -1839,13 +2251,35 @@ def run_tui(
             ("class:composer.frame", "╯  "),
         ]
 
-    def refresh() -> None:
-        output_area.text = (
-            state.text
-            if state.text
-            else welcome_screen(current_columns(), current_rows(), box_drawing=True)
+    def transcript_columns() -> int:
+        return max(20, current_columns() - 2)
+
+    def refresh(*, follow_tail: bool = True) -> None:
+        old_document = output_area.buffer.document
+        old_height = max(
+            1,
+            int(getattr(output_area.window.render_info, "window_height", current_rows() - 6)),
         )
-        output_area.buffer.cursor_position = len(output_area.text)
+        old_maximum = max(0, old_document.line_count - old_height)
+        old_top = min(old_maximum, max(0, output_area.window.vertical_scroll))
+        ratio = old_top / old_maximum if old_maximum else 0.0
+        columns = transcript_columns()
+        output_area.text = (
+            _wrap_display_text(state.text, columns)
+            if state.text
+            else welcome_screen(columns, current_rows(), box_drawing=True)
+        )
+        rendered_width["value"] = columns
+        document = output_area.buffer.document
+        if follow_tail:
+            output_area.buffer.cursor_position = len(output_area.text)
+            output_area.window.vertical_scroll = max(0, document.line_count - old_height)
+        else:
+            maximum = max(0, document.line_count - old_height)
+            target = min(document.line_count - 1, round(ratio * maximum))
+            output_area.buffer.cursor_position = document.translate_row_col_to_index(target, 0)
+            output_area.window.vertical_scroll = min(maximum, target)
+        output_area.window.vertical_scroll_2 = 0
 
     def prepare_render(app: Any) -> None:
         """Keep the tab context and empty-state geometry synced with live state."""
@@ -1854,28 +2288,28 @@ def run_tui(
         if last_terminal_title["value"] != title and callable(set_title):
             set_title(title)
             last_terminal_title["value"] = title
-        if state.text:
-            return
         size = app.output.get_size()
-        desired = welcome_screen(size.columns, size.rows, box_drawing=True)
+        desired_width = max(20, size.columns - 2)
+        if state.text:
+            if rendered_width["value"] != desired_width:
+                refresh(follow_tail=False)
+            return
+        desired = welcome_screen(desired_width, size.rows, box_drawing=True)
         if output_area.text != desired:
             output_area.text = desired
+            rendered_width["value"] = desired_width
             output_area.buffer.cursor_position = len(desired)
 
-    @bindings.add("enter", filter=~palette_open & ~secret_active)
-    def submit(event: Any) -> None:
-        line = command_area.text
-        command_area.buffer.reset(append_to_history=bool(line.strip()))
-        result = dispatcher.dispatch(line)
+    def apply_submission_result(app: Any, line: str, result: DispatchResult) -> None:
         if result.kind == "exit":
-            event.app.exit(result=0)
+            app.exit(result=0)
             return
         if result.kind == "secret":
             secret_mode["provider"] = result.output
             secret_area.buffer.reset()
             session_status.update(label="KEY", detail=f"masked {result.output} credential")
-            event.app.layout.focus(secret_area)
-            event.app.invalidate()
+            app.layout.focus(secret_area)
+            app.invalidate()
             return
         state.append(line, result)
         if result.kind == "clear":
@@ -1887,6 +2321,69 @@ def run_tui(
         else:
             session_status.update(label="OK", detail="operation completed")
         refresh()
+        app.layout.focus(command_area)
+        app.invalidate()
+
+    async def finish_cli_submission(
+        app: Any,
+        line: str,
+        plan: DispatchResult,
+        columns: int,
+        rows: int,
+    ) -> None:
+        try:
+            result = await _run_cli_plan(
+                dispatcher,
+                plan,
+                columns=columns,
+                rows=rows,
+                process_slot=command_run,
+            )
+        except asyncio.CancelledError:
+            await _terminate_process_tree(command_run.get("process"))
+            result = DispatchResult("command", "Command cancelled.", 130, plan.argv)
+        except Exception as exc:  # pragma: no cover - process-host guard
+            result = dispatcher.complete_invocation(
+                plan,
+                1,
+                f"Ionic could not run this command: {exc}",
+            )
+        command_run["task"] = None
+        command_run["process"] = None
+        command_run["cancel_event"] = None
+        apply_submission_result(app, line, result)
+        exit_after_cancel = bool(command_run.get("exit_after_cancel"))
+        command_run["exit_after_cancel"] = False
+        if exit_after_cancel:
+            app.exit(result=0)
+
+    @bindings.add("enter", filter=~palette_open & ~secret_active & command_idle)
+    def submit(event: Any) -> None:
+        line = command_area.text
+        command_area.buffer.reset(append_to_history=bool(line.strip()))
+        result = dispatcher.prepare(line)
+        if result.kind.startswith("invoke"):
+            session_status.update(label="RUNNING", detail="Ctrl-C cancels the active command")
+            command_run["cancel_event"] = asyncio.Event()
+            task = event.app.create_background_task(
+                finish_cli_submission(
+                    event.app,
+                    line,
+                    result,
+                    current_columns(),
+                    current_rows(),
+                )
+            )
+            command_run["task"] = task
+            event.app.layout.focus(command_area)
+            event.app.invalidate()
+            return
+        apply_submission_result(event.app, line, result)
+
+    @bindings.add("enter", filter=~secret_active & command_running, eager=True)
+    def reject_concurrent_submit(event: Any) -> None:
+        session_status.update(label="BUSY", detail="Ctrl-C cancels; command text is preserved")
+        event.app.invalidate()
 
     @bindings.add("enter", filter=secret_active, eager=True)
     def save_masked_credential(event: Any) -> None:
@@ -1938,11 +2435,24 @@ def run_tui(
     def close_palette(event: Any) -> None:
         command_area.buffer.cancel_completion()
 
-    @bindings.add("c-c", filter=~secret_active)
+    @bindings.add("c-c", filter=~secret_active & command_idle)
     def cancel_input(event: Any) -> None:
         command_area.buffer.reset()
 
-    @bindings.add("c-d", filter=~secret_active)
+    @bindings.add("c-c", filter=~secret_active & command_running, eager=True)
+    def cancel_active_command(event: Any) -> None:
+        cancel_event = command_run.get("cancel_event")
+        if cancel_event is not None and not cancel_event.is_set():
+            session_status.update(label="CANCELLING", detail="stopping the active command")
+            cancel_event.set()
+            event.app.invalidate()
+
+    @bindings.add("c-d", filter=~secret_active & command_running, eager=True)
+    def cancel_active_command_and_exit(event: Any) -> None:
+        command_run["exit_after_cancel"] = True
+        cancel_active_command(event)
+
+    @bindings.add("c-d", filter=~secret_active & command_idle)
     def exit_shell(event: Any) -> None:
         event.app.exit(result=0)
 
@@ -1974,97 +2484,78 @@ def run_tui(
 
     scrollback_focused = Condition(lambda: get_app().layout.has_focus(output_area))
 
-    def move_scrollback_cursor(delta: int) -> None:
+    def output_viewport() -> tuple[int, int, int]:
         document = output_area.buffer.document
-        target_row = max(
-            0,
-            min(document.line_count - 1, document.cursor_position_row + delta),
+        render_info = output_area.window.render_info
+        height = max(
+            1,
+            int(getattr(render_info, "window_height", max(1, current_rows() - 6))),
         )
-        output_area.buffer.cursor_position = document.translate_row_col_to_index(target_row, 0)
+        maximum = max(0, document.line_count - height)
+        top = min(maximum, max(0, output_area.window.vertical_scroll))
+        return top, maximum, height
 
-    def scroll_output(
-        event: Any,
-        toolkit_handler: Callable[[Any], None],
-        *,
-        fallback_delta: int,
-        restore_focus: bool,
-    ) -> None:
-        """Move the rendered viewport immediately, even while the composer is focused."""
-        layout = event.app.layout
-        previous = layout.current_control
-        if not layout.has_focus(output_area):
-            layout.focus(output_area)
-        if output_area.window.render_info is None:
-            move_scrollback_cursor(fallback_delta)
+    def set_output_view(event: Any, target: int) -> None:
+        """Set one deterministic logical viewport without changing input focus."""
+        document = output_area.buffer.document
+        current, maximum, height = output_viewport()
+        top = min(maximum, max(0, target))
+        if top == 0:
+            cursor_row = 0
+        elif top == maximum:
+            cursor_row = document.line_count - 1
+        elif top < current:
+            cursor_row = min(document.line_count - 1, top + height - 1)
         else:
-            toolkit_handler(event)
-        if restore_focus and previous is not output_area.control:
-            layout.focus(previous)
+            cursor_row = top
+        output_area.buffer.cursor_position = document.translate_row_col_to_index(cursor_row, 0)
+        output_area.window.vertical_scroll = top
+        output_area.window.vertical_scroll_2 = 0
         invalidate = getattr(event.app, "invalidate", None)
         if callable(invalidate):
             invalidate()
 
+    def scroll_output(event: Any, delta: int) -> None:
+        current, _, _ = output_viewport()
+        set_output_view(event, current + delta)
+
     @bindings.add("pageup")
     def scroll_page_up(event: Any) -> None:
-        scroll_output(
-            event,
-            toolkit_scroll_page_up,
-            fallback_delta=-10,
-            restore_focus=True,
-        )
+        _, _, height = output_viewport()
+        scroll_output(event, -max(1, height - 1))
 
     @bindings.add("pagedown")
     def scroll_page_down(event: Any) -> None:
-        scroll_output(
-            event,
-            toolkit_scroll_page_down,
-            fallback_delta=10,
-            restore_focus=True,
-        )
+        _, _, height = output_viewport()
+        scroll_output(event, max(1, height - 1))
 
     @bindings.add(Keys.ScrollUp, eager=True)
     def scroll_wheel_up(event: Any) -> None:
-        scroll_output(
-            event,
-            toolkit_scroll_one_line_up,
-            fallback_delta=-1,
-            restore_focus=True,
-        )
+        scroll_output(event, -3)
 
     @bindings.add(Keys.ScrollDown, eager=True)
     def scroll_wheel_down(event: Any) -> None:
-        scroll_output(
-            event,
-            toolkit_scroll_one_line_down,
-            fallback_delta=1,
-            restore_focus=True,
-        )
+        scroll_output(event, 3)
 
     @bindings.add("up", filter=scrollback_focused, eager=True)
     def scroll_line_up(event: Any) -> None:
-        scroll_output(
-            event,
-            toolkit_scroll_one_line_up,
-            fallback_delta=-1,
-            restore_focus=False,
-        )
+        scroll_output(event, -1)
 
     @bindings.add("down", filter=scrollback_focused, eager=True)
     def scroll_line_down(event: Any) -> None:
-        scroll_output(
-            event,
-            toolkit_scroll_one_line_down,
-            fallback_delta=1,
-            restore_focus=False,
-        )
+        scroll_output(event, 1)
 
     @bindings.add("g", filter=scrollback_focused)
     def scroll_to_top(event: Any) -> None:
-        output_area.buffer.cursor_position = 0
+        set_output_view(event, 0)
 
     @bindings.add("G", filter=scrollback_focused)
     def scroll_to_bottom(event: Any) -> None:
-        output_area.buffer.cursor_position = len(output_area.text)
+        _, maximum, _ = output_viewport()
+        set_output_view(event, maximum)
+
+    bindings.add("c-home", eager=True)(scroll_to_top)
+    bindings.add("c-end", eager=True)(scroll_to_bottom)
 
     palette_window = ConditionalContainer(
         VSplit(
@@ -2136,20 +2627,14 @@ def run_tui(
             }:
                 app = get_app()
                 upward = mouse_event.event_type == MouseEventType.SCROLL_UP
-                scroll_output(
-                    SimpleNamespace(app=app),
-                    toolkit_scroll_one_line_up if upward else toolkit_scroll_one_line_down,
-                    fallback_delta=-1 if upward else 1,
-                    restore_focus=True,
-                )
+                scroll_output(SimpleNamespace(app=app), -3 if upward else 3)
                 return None
             return original(mouse_event)
 
         control.mouse_handler = mouse_handler
 
     for routed_control in layout.find_all_controls():
-        if routed_control is not output_area.control:
-            route_mouse_wheel(routed_control)
+        route_mouse_wheel(routed_control)
     ui_style = Style.from_dict(
         {
             "surface": "bg:#090909",

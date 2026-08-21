@@ -20,7 +20,7 @@ function fixture() {
   temporaryDirectories.push(desktopRoot);
   fs.writeFileSync(path.join(desktopRoot, "package.json"), JSON.stringify({
     ionicEdition: "essential",
-    version: "0.7.1",
+    version: "0.7.2",
     build: {
       artifactName: "Ionic-Essential-${version}-${arch}.${ext}",
       directories: { output: "dist/essential" },
@@ -29,8 +29,8 @@ function fixture() {
   }));
   const output = path.join(desktopRoot, "dist", "essential");
   fs.mkdirSync(path.join(output, "win-unpacked"), { recursive: true });
-  fs.writeFileSync(path.join(output, "Ionic-Essential-Setup-0.7.1-x64.exe"), "setup");
-  fs.writeFileSync(path.join(output, "Ionic-Essential-0.7.1-x64.zip"), "archive");
+  fs.writeFileSync(path.join(output, "Ionic-Essential-Setup-0.7.2-x64.exe"), "setup");
+  fs.writeFileSync(path.join(output, "Ionic-Essential-0.7.2-x64.zip"), "archive");
   fs.writeFileSync(path.join(output, "builder-debug.yml"), "C:\\private\\workspace");
   fs.writeFileSync(path.join(output, "latest.yml"), "stale update metadata");
   fs.writeFileSync(path.join(output, "Ionic-Essential-0.5.0-x64.zip"), "stale artifact");
@@ -52,8 +52,8 @@ describe("Essential release staging", () => {
     const desktopRoot = fixture();
     const staged = stageReleaseArtifacts({ target: "win", arch: "x64", desktopRoot });
     assert.deepEqual(staged.files, [
-      "Ionic-Essential-Setup-0.7.1-x64.exe",
-      "Ionic-Essential-0.7.1-x64.zip",
+      "Ionic-Essential-Setup-0.7.2-x64.exe",
+      "Ionic-Essential-0.7.2-x64.zip",
       "artifacts.json",
     ]);
     assert.deepEqual(fs.readdirSync(staged.directory).sort(), [...staged.files].sort());
@@ -62,7 +62,7 @@ describe("Essential release staging", () => {
     const manifest = JSON.parse(manifestText);
     assert.equal(manifest.schema_version, 1);
     assert.equal(manifest.edition, "essential");
-    assert.equal(manifest.version, "0.7.1");
+    assert.equal(manifest.version, "0.7.2");
     assert.deepEqual(manifest.artifacts.map(({ name }) => name), staged.files.slice(0, 2));
     assert.doesNotMatch(manifestText, /builder-debug|latest\.yml|win-unpacked|0\.5\.0|private|ionic-essential-release/i);
     assert.equal(fs.existsSync(path.join(staged.directory, "old-local-paths.txt")), false);
@@ -70,7 +70,7 @@ describe("Essential release staging", () => {
 
   it("fails closed when an allowlisted artifact is absent", () => {
     const desktopRoot = fixture();
-    fs.rmSync(path.join(desktopRoot, "dist", "essential", "Ionic-Essential-0.7.1-x64.zip"));
+    fs.rmSync(path.join(desktopRoot, "dist", "essential", "Ionic-Essential-0.7.2-x64.zip"));
     assert.throws(
       () => stageReleaseArtifacts({ target: "win", desktopRoot }),
       /Required release artifact is missing/
@@ -85,31 +85,31 @@ describe("Essential release staging", () => {
     const desktopRoot = fixture();
     const output = path.join(desktopRoot, "dist", "essential");
     fs.writeFileSync(
-      path.join(output, "Ionic-Essential-0.7.1-x86_64.AppImage"),
+      path.join(output, "Ionic-Essential-0.7.2-x86_64.AppImage"),
       "appimage"
     );
     fs.writeFileSync(
-      path.join(output, "Ionic-Essential-0.7.1-amd64.deb"),
+      path.join(output, "Ionic-Essential-0.7.2-amd64.deb"),
       "deb"
     );
 
-    assert.deepEqual(expectedArtifactNames("linux", "0.7.1"), [
-      "Ionic-Essential-0.7.1-x86_64.AppImage",
-      "Ionic-Essential-0.7.1-amd64.deb",
+    assert.deepEqual(expectedArtifactNames("linux", "0.7.2"), [
+      "Ionic-Essential-0.7.2-x86_64.AppImage",
+      "Ionic-Essential-0.7.2-amd64.deb",
     ]);
-    assert.deepEqual(expectedArtifactNames("mac", "0.7.1"), [
-      "Ionic-Essential-0.7.1-x64.dmg",
-      "Ionic-Essential-0.7.1-x64.zip",
+    assert.deepEqual(expectedArtifactNames("mac", "0.7.2"), [
+      "Ionic-Essential-0.7.2-x64.dmg",
+      "Ionic-Essential-0.7.2-x64.zip",
     ]);
-    assert.deepEqual(expectedArtifactNames("win", "0.7.1"), [
-      "Ionic-Essential-Setup-0.7.1-x64.exe",
-      "Ionic-Essential-0.7.1-x64.zip",
+    assert.deepEqual(expectedArtifactNames("win", "0.7.2"), [
+      "Ionic-Essential-Setup-0.7.2-x64.exe",
+      "Ionic-Essential-0.7.2-x64.zip",
     ]);
     assert.deepEqual(
       stageReleaseArtifacts({ target: "linux", arch: "x64", desktopRoot }).files,
       [
-        "Ionic-Essential-0.7.1-x86_64.AppImage",
-        "Ionic-Essential-0.7.1-amd64.deb",
+        "Ionic-Essential-0.7.2-x86_64.AppImage",
+        "Ionic-Essential-0.7.2-amd64.deb",
         "artifacts.json",
       ]
     );
