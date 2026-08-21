@@ -396,7 +396,7 @@ describe("renderer accessibility contract", () => {
   });
 
   it("provides an explicit offline multi-repository scan and guarded sync surface", () => {
-    assert.equal(packageJson.version, "0.7.0");
+    assert.equal(packageJson.version, "0.7.1");
     assert.ok(html.indexOf('data-view="contracts"') < html.indexOf('data-view="repositories"'));
     assert.ok(html.indexOf('data-view="repositories"') < html.indexOf('data-view="graph"'));
     assert.match(html, /id="view-repositories"[\s\S]+?id="repository-add"[\s\S]+?id="workspace-scan"/);

@@ -18,14 +18,16 @@ Ionic remains useful in CI and minimal Python installs.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import os
 from pathlib import Path
 import re
 import shlex
 import shutil
 import sys
+from types import SimpleNamespace
 from typing import Any, TextIO
+from urllib.parse import urlsplit
 
 
 CommandInvoker = Callable[[list[str], Mapping[str, str] | None], Any]
@@ -37,8 +39,44 @@ MAX_HISTORY_ENTRIES = 500
 MAX_SESSION_REPOSITORIES = 64
 MAX_PATH_COMPLETIONS = 50
 MAX_PATH_CHARS = 4_096
+MAX_MODEL_CHARS = 200
+MAX_API_KEY_CHARS = 16_384
 
 _REPOSITORY_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}\Z")
+_DIRECT_REVIEW_PROVIDERS = frozenset({"anthropic", "openai", "google", "xai", "local"})
+_REVIEW_CREDENTIAL_ENV = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "google": "GEMINI_API_KEY",
+    "xai": "XAI_API_KEY",
+    "local": "IONIC_LOCAL_API_KEY",
+}
+_REVIEW_DEFAULT_MODELS = {
+    "anthropic": "claude-sonnet-5",
+    "openai": "gpt-5.2",
+    "google": "gemini-3.6-flash",
+    "xai": "grok-4.5",
+    "local": "qwen2.5-coder",
+}
+_SUBSCRIPTION_RUNTIMES = frozenset({"openai-codex", "xai-grok-build"})
+_SUBSCRIPTION_DISCLOSURES = {
+    "openai-codex": (
+        "OpenAI's official Codex app-server owns ChatGPT sign-in and tokens; Ionic "
+        "does not receive your password, browser cookies, OAuth token, or API key. "
+        "Only an explicit /semantic check sends the compared contract text, proposed "
+        "changes, relevant dependency context, and Ionic's review schema/instructions. "
+        "Ionic requests an ephemeral thread with restricted readable roots, no inherited "
+        "instruction sources, no tool approvals, and network-disabled tool policy."
+    ),
+    "xai-grok-build": (
+        "xAI's official local Grok CLI owns its login and token; Ionic does not request "
+        "or store that token. Only an explicit /semantic check sends the compared "
+        "contract text, proposed changes, relevant dependency context, and Ionic's review "
+        "instructions/schema. Ionic runs the review from an empty temporary folder with "
+        "filesystem, terminal, and MCP tools disabled; the Grok CLI may still apply its "
+        "own user or administrator configuration."
+    ),
+}
 
 
 _FULL_MARK = (
@@ -116,6 +154,46 @@ _COMMAND_SPECS = (
         "session",
         "/repo remove ",
     ),
+    CommandSpec(
+        "/semantic status",
+        "Show semantic access, provider, model, and credential readiness",
+        "review",
+    ),
+    CommandSpec(
+        "/semantic api",
+        "Choose an API provider and model for this TUI session",
+        "session",
+        "/semantic api ",
+    ),
+    CommandSpec(
+        "/semantic subscription",
+        "Choose an official subscription runtime for this TUI session",
+        "session",
+        "/semantic subscription ",
+    ),
+    CommandSpec(
+        "/semantic consent",
+        "Review and explicitly accept subscription data access for this session",
+        "consent",
+    ),
+    CommandSpec(
+        "/semantic key set",
+        "Enter one provider API key in a masked session-only prompt",
+        "masked",
+        "/semantic key set ",
+    ),
+    CommandSpec(
+        "/semantic key clear",
+        "Forget one provider API key for this TUI session",
+        "session",
+        "/semantic key clear ",
+    ),
+    CommandSpec(
+        "/semantic check",
+        "Run one explicitly opted-in semantic contract review",
+        "remote",
+        "/semantic check ",
+    ),
     CommandSpec("/status", "Inspect registry health and drift"),
     CommandSpec("/list", "List registered contracts"),
     CommandSpec("/show", "Inspect one contract"),
@@ -145,7 +223,7 @@ _COMMAND_SPECS = (
 class DispatchResult:
     """The result of one interactive submission.
 
-    ``kind`` is ``command``, ``error``, ``clear``, or ``exit``.  The UI can
+    ``kind`` is ``command``, ``error``, ``secret``, ``clear``, or ``exit``.  The UI can
     render this without needing to know anything about Click, Typer, or Rich.
     """
 
@@ -173,6 +251,8 @@ class ShellState:
     def append(self, line: str, result: DispatchResult) -> None:
         if result.kind == "clear":
             self.transcript.clear()
+            return
+        if result.kind == "secret":
             return
         if line.strip():
             self.history.append(line)
@@ -242,6 +322,16 @@ _COMMAND_HELP = """Ionic commands
   /repo list              list session repositories
   /repo select ID         focus a session repository
   /repo remove ID         remove a session repository
+  /semantic status        show semantic-review configuration and readiness
+  /semantic api ...       choose an API provider/model for this session
+  /semantic subscription ...
+                           choose an official subscription runtime
+  /semantic key set PROVIDER
+                           enter a masked, session-only provider credential
+  /semantic key clear PROVIDER
+                           forget a session credential
+  /semantic check <contract> ...
+                           run check with explicit semantic review (--llm)
   /status                 registry health and drift summary
   /list [options]         list registered contracts
   /show <contract>        inspect one contract
@@ -262,6 +352,41 @@ _COMMAND_HELP = """Ionic commands
 Every operation uses the normal Ionic command implementation. Type
 /help <command> for the CLI's detailed options.  The command bar does not run
 shell commands."""
+
+_SEMANTIC_HELP = """Semantic review commands
+
+  /semantic status
+      Show the active access mode, provider/runtime, model, and credential
+      readiness. Values come from this session, then .ionic/config.toml and
+      environment variables.
+
+  /semantic api PROVIDER [MODEL] [BASE_URL]
+      Select anthropic, openai, google, xai, or local for this TUI session.
+      MODEL defaults to Ionic's reviewed provider default. BASE_URL is accepted
+      only for local OpenAI-compatible models.
+
+  /semantic subscription RUNTIME [MODEL]
+      Select openai-codex or xai-grok-build. Ionic uses the runtime's existing
+      login and never asks for its token. A semantic run still requires the
+      current explicit data-access consent.
+
+  /semantic consent
+      Show the selected runtime's current data-access disclosure and the exact
+      versioned acceptance command. Consent is session-only and may be revoked.
+
+  /semantic key set PROVIDER
+      Open a masked prompt. The key exists only in this process and is never
+      written to history, scrollback, argv, Desktop, or .ionic/config.toml.
+
+  /semantic key clear PROVIDER
+      Remove that credential from this TUI session only.
+
+  /semantic check CONTRACT [CHECK OPTIONS]
+      Run the normal Ionic check command with --llm. This is the explicit action
+      that can send selected contract content to the configured provider.
+
+Workspace scan/check v1 remains structural and offline; it does not offer a
+semantic pass. Configuration alone never starts a model request."""
 
 _REPOSITORY_HELP = """Session repository commands
 
@@ -630,6 +755,55 @@ def _split_command(source: str) -> list[str]:
     return list(lexer)
 
 
+def _review_model(value: str) -> str:
+    model = value.strip()
+    if not model or len(model) > MAX_MODEL_CHARS:
+        raise ValueError(f"model must contain 1 to {MAX_MODEL_CHARS} characters")
+    if any(ord(character) < 32 or ord(character) == 127 for character in model):
+        raise ValueError("model must not contain control characters")
+    return model
+
+
+def _review_local_url(value: str) -> str:
+    endpoint = value.strip()
+    if len(endpoint) > 2_048:
+        raise ValueError("local endpoint is too long")
+    try:
+        parsed = urlsplit(endpoint)
+        _ = parsed.port
+    except ValueError as exc:
+        raise ValueError("local endpoint is not a valid URL") from exc
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("local endpoint must use HTTP or HTTPS and include a host")
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ValueError("local endpoint must not contain credentials, a query, or a fragment")
+    return endpoint
+
+
+def _terminal_title_label(value: str, *, limit: int = 48) -> str:
+    """Return a short control-free label suitable for a terminal tab."""
+    cleaned = " ".join(
+        "".join(character for character in str(value) if ord(character) >= 32 and ord(character) != 127).split()
+    )
+    if not cleaned:
+        return "registry"
+    return cleaned if len(cleaned) <= limit else f"{cleaned[: limit - 1]}…"
+
+
+def _current_console_title() -> str | None:
+    """Capture the Windows console title so the TUI can restore it on exit."""
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes
+
+        buffer = ctypes.create_unicode_buffer(1_024)
+        ctypes.windll.kernel32.GetConsoleTitleW(buffer, len(buffer))
+        return buffer.value
+    except (AttributeError, OSError, ValueError):
+        return None
+
+
 def _plain_terminal_output(value: str) -> str:
     """Remove styling codes before rendering CLI output inside TextArea."""
     from rich.text import Text
@@ -677,10 +851,11 @@ class CommandDispatcher:
         base_path: Path | None = None,
     ) -> None:
         self._invoker = invoker or _default_invoke
-        self._environ = environ
+        self._environ = dict(environ if environ is not None else os.environ)
         self._base_path = (base_path or Path.cwd()).resolve()
         self._repositories: dict[str, SessionRepository] = {}
         self._selected_repository_id: str | None = None
+        self._subscription_consent_runtime: str | None = None
 
     @property
     def repositories(self) -> tuple[SessionRepository, ...]:
@@ -695,15 +870,86 @@ class CommandDispatcher:
     def base_path(self) -> Path:
         return self._base_path
 
+    @property
+    def terminal_title(self) -> str:
+        """Short live context for the terminal tab, without exposing a full path."""
+        if self._selected_repository_id:
+            context = f"repo: {self._selected_repository_id}"
+        else:
+            context = f"registry: {_terminal_title_label(self._base_path.name)}"
+        return f"Ionic - {context}"
+
+    def set_session_credential(self, provider: str, secret: str) -> DispatchResult:
+        """Keep one provider key in this process only, never in argv or storage."""
+        selected = provider.strip().lower()
+        if selected not in _DIRECT_REVIEW_PROVIDERS:
+            return DispatchResult(
+                "error",
+                "Credential provider must be anthropic, openai, google, xai, or local.",
+                2,
+            )
+        value = secret.strip()
+        if not value:
+            return DispatchResult("error", "API key cannot be empty. Press Esc to cancel.", 2)
+        if len(value) > MAX_API_KEY_CHARS:
+            return DispatchResult(
+                "error", f"API key exceeds {MAX_API_KEY_CHARS} characters.", 2
+            )
+        if any(ord(character) < 32 or ord(character) == 127 for character in value):
+            return DispatchResult("error", "API key contains invalid control characters.", 2)
+        self._environ[_REVIEW_CREDENTIAL_ENV[selected]] = value
+        return DispatchResult(
+            "command",
+            f"{selected} credential is configured for this TUI session only.\n"
+            "It was not written to history, scrollback, argv, Desktop, or disk.",
+        )
+
+    def _clear_session_credential(self, provider: str) -> DispatchResult:
+        selected = provider.strip().lower()
+        if selected not in _DIRECT_REVIEW_PROVIDERS:
+            return DispatchResult(
+                "error",
+                "Credential provider must be anthropic, openai, google, xai, or local.",
+                2,
+            )
+        names = [_REVIEW_CREDENTIAL_ENV[selected]]
+        if selected == "google":
+            names.append("GOOGLE_API_KEY")
+        for name in names:
+            self._environ.pop(name, None)
+        return DispatchResult(
+            "command",
+            f"{selected} credential is unavailable to this TUI session.\n"
+            "No Desktop credential or configuration file was changed.",
+        )
+
     def _invoke(self, argv: list[str]) -> DispatchResult:
         try:
-            return _result_from_invocation(self._invoker(argv, self._environ), argv)
+            result = _result_from_invocation(self._invoker(argv, self._environ), argv)
+            safe_output = self._redact_review_credentials(result.output)
+            return result if safe_output == result.output else replace(result, output=safe_output)
         except KeyboardInterrupt:
             return DispatchResult("error", "Command cancelled.", 130, tuple(argv))
         except Exception as exc:  # pragma: no cover - host integration guard
             return DispatchResult(
-                "error", f"Ionic could not run this command: {exc}", 1, tuple(argv)
+                "error",
+                f"Ionic could not run this command: {self._redact_review_credentials(str(exc))}",
+                1,
+                tuple(argv),
             )
+
+    def _redact_review_credentials(self, text: str) -> str:
+        safe = text
+        names = {
+            *_REVIEW_CREDENTIAL_ENV.values(),
+            "GOOGLE_API_KEY",
+            "ANTHROPIC_AUTH_TOKEN",
+        }
+        for name in names:
+            value = self._environ.get(name)
+            if value:
+                safe = safe.replace(value, "[REDACTED]")
+        return safe
 
     def _repository_listing(self) -> str:
         if not self._repositories:
@@ -830,6 +1076,202 @@ class CommandDispatcher:
         combined = "Ionic dashboard\n" + (f"\n{output}\n" if output else "\n") + f"\n{overview}"
         return DispatchResult("command", combined, 0, tuple(status_argv))
 
+    def _dispatch_semantic(self, argv: list[str]) -> DispatchResult:
+        if len(argv) == 1 or (len(argv) == 2 and argv[1] in {"--help", "help"}):
+            return DispatchResult("command", _SEMANTIC_HELP)
+        action = argv[1].lower()
+
+        if action == "status" and len(argv) == 2:
+            result = self._invoke(["status"])
+            if result.exit_code:
+                return result
+            return DispatchResult(
+                "command",
+                "Semantic review is opt-in per check; configuration alone sends nothing.\n\n"
+                + result.output.rstrip(),
+                0,
+                ("status",),
+            )
+
+        if action == "api":
+            if not 3 <= len(argv) <= 5:
+                return DispatchResult(
+                    "error", "Usage: /semantic api PROVIDER [MODEL] [BASE_URL].", 2
+                )
+            provider = argv[2].lower()
+            if provider not in _DIRECT_REVIEW_PROVIDERS:
+                return DispatchResult(
+                    "error",
+                    "API provider must be anthropic, openai, google, xai, or local.",
+                    2,
+                )
+            try:
+                model = _review_model(
+                    argv[3] if len(argv) >= 4 else _REVIEW_DEFAULT_MODELS[provider]
+                )
+                endpoint = _review_local_url(argv[4]) if len(argv) == 5 else None
+            except ValueError as exc:
+                return DispatchResult("error", str(exc), 2)
+            if endpoint is not None and provider != "local":
+                return DispatchResult(
+                    "error", "BASE_URL is accepted only for the local provider.", 2
+                )
+            self._environ.update(
+                IONIC_MODEL_ACCESS="api",
+                IONIC_JUDGE_PROVIDER=provider,
+                IONIC_JUDGE_MODEL=model,
+            )
+            if endpoint is not None:
+                self._environ["IONIC_LOCAL_BASE_URL"] = endpoint
+            credential_names = [_REVIEW_CREDENTIAL_ENV[provider]]
+            if provider == "google":
+                credential_names.append("GOOGLE_API_KEY")
+            if provider == "anthropic":
+                credential_names.append("ANTHROPIC_AUTH_TOKEN")
+            ready = provider == "local" or any(self._environ.get(name) for name in credential_names)
+            readiness = "credential ready" if ready else f"credential missing; use /semantic key set {provider}"
+            return DispatchResult(
+                "command",
+                f"Semantic API session: {provider} · {model}\n{readiness}.\n"
+                "No model request was started. Use /semantic check for an explicit review.",
+            )
+
+        if action == "subscription":
+            if not 3 <= len(argv) <= 4:
+                return DispatchResult(
+                    "error", "Usage: /semantic subscription RUNTIME [MODEL].", 2
+                )
+            runtime = argv[2].lower()
+            if runtime not in _SUBSCRIPTION_RUNTIMES:
+                return DispatchResult(
+                    "error", "Runtime must be openai-codex or xai-grok-build.", 2
+                )
+            try:
+                model = _review_model(argv[3]) if len(argv) == 4 else ""
+            except ValueError as exc:
+                return DispatchResult("error", str(exc), 2)
+            self._environ.update(
+                IONIC_MODEL_ACCESS="subscription",
+                IONIC_SUBSCRIPTION_RUNTIME=runtime,
+            )
+            self._environ.pop("IONIC_SUBSCRIPTION_CONSENT_VERSION", None)
+            self._subscription_consent_runtime = None
+            if model:
+                self._environ["IONIC_JUDGE_MODEL"] = model
+            else:
+                self._environ.pop("IONIC_JUDGE_MODEL", None)
+            shown_model = model or "runtime default"
+            return DispatchResult(
+                "command",
+                f"Semantic subscription session: {runtime} · {shown_model}\n"
+                "No token was requested and no runtime was contacted. An explicit semantic check "
+                "still requires the current data-access consent; run /semantic consent.",
+            )
+
+        if action == "consent":
+            from .config import SUBSCRIPTION_CONSENT_VERSION
+
+            runtime = self._environ.get("IONIC_SUBSCRIPTION_RUNTIME", "").lower()
+            if self._environ.get("IONIC_MODEL_ACCESS") != "subscription" or runtime not in _SUBSCRIPTION_RUNTIMES:
+                return DispatchResult(
+                    "error",
+                    "Select openai-codex or xai-grok-build with /semantic subscription first.",
+                    2,
+                )
+            if len(argv) == 2:
+                disclosure = _SUBSCRIPTION_DISCLOSURES[runtime]
+                return DispatchResult(
+                    "command",
+                    f"Subscription semantic-review disclosure · {runtime}\n\n"
+                    f"{disclosure}\n\n"
+                    "Configuration alone sends nothing. Consent lasts only for this TUI process "
+                    "and may be revoked with /semantic consent revoke.\n\n"
+                    "To accept this exact disclosure, type:\n"
+                    f"/semantic consent accept {runtime} {SUBSCRIPTION_CONSENT_VERSION}",
+                )
+            if len(argv) == 3 and argv[2].lower() == "revoke":
+                self._environ.pop("IONIC_SUBSCRIPTION_CONSENT_VERSION", None)
+                self._subscription_consent_runtime = None
+                return DispatchResult(
+                    "command",
+                    "Subscription data-access consent was revoked for this TUI session. "
+                    "No runtime was contacted.",
+                )
+            if len(argv) == 5 and argv[2].lower() == "accept":
+                accepted_runtime = argv[3].lower()
+                accepted_version = argv[4]
+                if accepted_runtime != runtime or accepted_version != SUBSCRIPTION_CONSENT_VERSION:
+                    return DispatchResult(
+                        "error",
+                        "Consent must match the selected runtime and the exact current disclosure "
+                        "command shown by /semantic consent.",
+                        2,
+                    )
+                self._environ["IONIC_SUBSCRIPTION_CONSENT_VERSION"] = SUBSCRIPTION_CONSENT_VERSION
+                self._subscription_consent_runtime = runtime
+                return DispatchResult(
+                    "command",
+                    f"Consent {SUBSCRIPTION_CONSENT_VERSION} accepted for {runtime} in this TUI "
+                    "session only. No model request was started; /semantic check remains explicit.",
+                )
+            return DispatchResult(
+                "error",
+                "Usage: /semantic consent | /semantic consent accept RUNTIME VERSION | "
+                "/semantic consent revoke.",
+                2,
+            )
+
+        if action == "key":
+            if len(argv) != 4 or argv[2].lower() not in {"set", "clear"}:
+                return DispatchResult(
+                    "error", "Usage: /semantic key set|clear PROVIDER.", 2
+                )
+            provider = argv[3].lower()
+            if provider not in _DIRECT_REVIEW_PROVIDERS:
+                return DispatchResult(
+                    "error",
+                    "Credential provider must be anthropic, openai, google, xai, or local.",
+                    2,
+                )
+            if argv[2].lower() == "clear":
+                return self._clear_session_credential(provider)
+            return DispatchResult("secret", provider)
+
+        if action == "check":
+            if len(argv) < 3:
+                return DispatchResult(
+                    "error", "Usage: /semantic check CONTRACT [CHECK OPTIONS].", 2
+                )
+            if "--no-llm" in argv[2:]:
+                return DispatchResult(
+                    "error", "/semantic check is explicitly semantic; remove --no-llm.", 2
+                )
+            if self._environ.get("IONIC_MODEL_ACCESS") == "subscription":
+                from .config import SUBSCRIPTION_CONSENT_VERSION
+
+                runtime = self._environ.get("IONIC_SUBSCRIPTION_RUNTIME", "").lower()
+                consent_is_current = (
+                    self._environ.get("IONIC_SUBSCRIPTION_CONSENT_VERSION")
+                    == SUBSCRIPTION_CONSENT_VERSION
+                )
+                consent_matches_selection = self._subscription_consent_runtime == runtime
+                if not consent_is_current or not consent_matches_selection:
+                    return DispatchResult(
+                        "error",
+                        "Subscription semantic review requires the current explicit data-access "
+                        "consent. Run /semantic consent, review it, then enter its exact acceptance "
+                        "command.",
+                        2,
+                    )
+            check_argv = ["check", *argv[2:]]
+            if "--llm" not in check_argv:
+                check_argv.append("--llm")
+            return self._invoke(check_argv)
+
+        return DispatchResult(
+            "error", "/semantic expects: status, api, subscription, consent, key, or check.", 2
+        )
+
     def dispatch(self, line: str) -> DispatchResult:
         source = line.strip()
         if not source:
@@ -860,6 +1302,8 @@ class CommandDispatcher:
                 return DispatchResult("command", _COMMAND_HELP)
             if argv[1].lower() == "repo":
                 return DispatchResult("command", _REPOSITORY_HELP)
+            if argv[1].lower() == "semantic":
+                return DispatchResult("command", _SEMANTIC_HELP)
             argv = [*argv[1:], "--help"]
             command = argv[0].lower()
 
@@ -867,6 +1311,8 @@ class CommandDispatcher:
             return self._dispatch_repository(argv)
         if command == "dashboard":
             return self._dispatch_dashboard(argv)
+        if command == "semantic":
+            return self._dispatch_semantic(argv)
 
         if command not in _TOP_LEVEL_COMMANDS:
             return DispatchResult("error", f"Unknown Ionic command: /{command}. Try /help.", 2)
@@ -913,6 +1359,15 @@ def _plain_loop(
         result = dispatcher.dispatch(line)
         if result.kind == "exit":
             return 0
+        if result.kind == "secret":
+            provider = result.output
+            variable = _REVIEW_CREDENTIAL_ENV.get(provider, "the provider environment variable")
+            output.write(
+                "Masked credential entry needs the fullscreen TUI. "
+                f"Set {variable} before launching Ionic, then try again.\n"
+            )
+            output.flush()
+            continue
         state.append(line, result)
         if result.kind == "clear":
             # Deliberately avoid ANSI clear-screen escapes in the plain mode.
@@ -961,10 +1416,18 @@ def run_tui(
         from prompt_toolkit.filters import Condition
         from prompt_toolkit.history import History
         from prompt_toolkit.key_binding import KeyBindings
+        from prompt_toolkit.key_binding.bindings.scroll import (
+            scroll_one_line_down as toolkit_scroll_one_line_down,
+            scroll_one_line_up as toolkit_scroll_one_line_up,
+            scroll_page_down as toolkit_scroll_page_down,
+            scroll_page_up as toolkit_scroll_page_up,
+        )
+        from prompt_toolkit.keys import Keys
         from prompt_toolkit.layout import ConditionalContainer, HSplit, Layout, VSplit, Window
         from prompt_toolkit.layout.controls import FormattedTextControl
         from prompt_toolkit.layout.dimension import Dimension
         from prompt_toolkit.lexers import Lexer
+        from prompt_toolkit.mouse_events import MouseEventType
         from prompt_toolkit.styles import Style
         from prompt_toolkit.widgets import TextArea
     except ImportError:
@@ -1190,12 +1653,14 @@ def run_tui(
             return fragments
 
     terminal_size = shutil.get_terminal_size(fallback=(80, 24))
+    original_terminal_title = _current_console_title()
     colors = not bool(env.get("NO_COLOR"))
     output_area = TextArea(
         text=welcome_screen(width, terminal_size.lines, box_drawing=True),
         read_only=True,
-        scrollbar=False,
+        scrollbar=True,
         focusable=True,
+        focus_on_click=True,
         wrap_lines=True,
         lexer=IonicOutputLexer(),
         style="class:transcript" if colors else "",
@@ -1209,9 +1674,20 @@ def run_tui(
         history=BoundedHistory(),
         style="class:composer" if colors else "",
     )
+    secret_area = TextArea(
+        height=1,
+        prompt=[("class:prompt", "key ❯ ")] if colors else "key > ",
+        multiline=False,
+        password=True,
+        complete_while_typing=False,
+        style="class:composer" if colors else "",
+    )
     bindings = KeyBindings()
     application: Application[Any]
     session_status = {"label": "READY", "detail": "exact Ionic operations"}
+    secret_mode: dict[str, str | None] = {"provider": None}
+    last_terminal_title: dict[str, str | None] = {"value": None}
+    secret_active = Condition(lambda: secret_mode["provider"] is not None)
 
     def current_columns() -> int:
         try:
@@ -1226,6 +1702,8 @@ def run_tui(
             return terminal_size.lines
 
     def palette_is_visible() -> bool:
+        if secret_mode["provider"] is not None:
+            return False
         completion_state = command_area.buffer.complete_state
         if completion_state is None or not completion_state.completions:
             return False
@@ -1302,6 +1780,16 @@ def run_tui(
         except Exception:
             scrollback = False
         columns = current_columns()
+        if secret_mode["provider"] is not None:
+            provider = secret_mode["provider"]
+            if columns < 48:
+                return [("class:tip", "  masked · Enter save · Esc cancel")]
+            return [
+                (
+                    "class:tip",
+                    f"  {provider} key · masked · session only · Enter saves · Esc cancels",
+                )
+            ]
         if palette_is_visible():
             if columns < 48:
                 return [("class:tip", "  ↑/↓ choose · Enter insert")]
@@ -1357,11 +1845,15 @@ def run_tui(
             if state.text
             else welcome_screen(current_columns(), current_rows(), box_drawing=True)
         )
-        output_area.window.scrollbar = bool(state.text)
         output_area.buffer.cursor_position = len(output_area.text)
 
     def prepare_render(app: Any) -> None:
-        """Keep the empty-state geometry synced with live terminal resizes."""
+        """Keep the tab context and empty-state geometry synced with live state."""
+        title = dispatcher.terminal_title
+        set_title = getattr(app.output, "set_title", None)
+        if last_terminal_title["value"] != title and callable(set_title):
+            set_title(title)
+            last_terminal_title["value"] = title
         if state.text:
             return
         size = app.output.get_size()
@@ -1369,15 +1861,21 @@ def run_tui(
         if output_area.text != desired:
             output_area.text = desired
             output_area.buffer.cursor_position = len(desired)
-        output_area.window.scrollbar = False
 
-    @bindings.add("enter", filter=~palette_open)
+    @bindings.add("enter", filter=~palette_open & ~secret_active)
     def submit(event: Any) -> None:
         line = command_area.text
         command_area.buffer.reset(append_to_history=bool(line.strip()))
         result = dispatcher.dispatch(line)
         if result.kind == "exit":
             event.app.exit(result=0)
+            return
+        if result.kind == "secret":
+            secret_mode["provider"] = result.output
+            secret_area.buffer.reset()
+            session_status.update(label="KEY", detail=f"masked {result.output} credential")
+            event.app.layout.focus(secret_area)
+            event.app.invalidate()
             return
         state.append(line, result)
         if result.kind == "clear":
@@ -1389,6 +1887,35 @@ def run_tui(
         else:
             session_status.update(label="OK", detail="operation completed")
         refresh()
+
+    @bindings.add("enter", filter=secret_active, eager=True)
+    def save_masked_credential(event: Any) -> None:
+        provider = str(secret_mode["provider"] or "")
+        result = dispatcher.set_session_credential(provider, secret_area.text)
+        secret_area.buffer.reset()
+        if result.exit_code:
+            session_status.update(label="ERROR", detail=result.output)
+            event.app.invalidate()
+            return
+        secret_mode["provider"] = None
+        state.append(f"/semantic key set {provider}", result)
+        session_status.update(label="OK", detail=f"{provider} key ready for this session")
+        refresh()
+        event.app.layout.focus(command_area)
+        invalidate = getattr(event.app, "invalidate", None)
+        if callable(invalidate):
+            invalidate()
+
+    def cancel_masked_credential(event: Any) -> None:
+        secret_area.buffer.reset()
+        secret_mode["provider"] = None
+        session_status.update(label="READY", detail="credential entry cancelled")
+        event.app.layout.focus(command_area)
+        event.app.invalidate()
+
+    bindings.add("escape", filter=secret_active, eager=True)(cancel_masked_credential)
+    bindings.add("c-c", filter=secret_active, eager=True)(cancel_masked_credential)
+    bindings.add("c-d", filter=secret_active, eager=True)(cancel_masked_credential)
 
     @bindings.add("enter", filter=palette_open, eager=True)
     def apply_palette_selection(event: Any) -> None:
@@ -1411,11 +1938,11 @@ def run_tui(
     def close_palette(event: Any) -> None:
         command_area.buffer.cancel_completion()
 
-    @bindings.add("c-c")
+    @bindings.add("c-c", filter=~secret_active)
     def cancel_input(event: Any) -> None:
         command_area.buffer.reset()
 
-    @bindings.add("c-d")
+    @bindings.add("c-d", filter=~secret_active)
     def exit_shell(event: Any) -> None:
         event.app.exit(result=0)
 
@@ -1427,7 +1954,7 @@ def run_tui(
     def cycle_palette_backward(event: Any) -> None:
         command_area.buffer.complete_previous()
 
-    @bindings.add("tab", filter=~palette_open)
+    @bindings.add("tab", filter=~palette_open & ~secret_active)
     def complete_or_focus_scrollback(event: Any) -> None:
         if event.app.layout.has_focus(output_area):
             event.app.layout.focus(command_area)
@@ -1436,7 +1963,7 @@ def run_tui(
         else:
             event.app.layout.focus(output_area)
 
-    @bindings.add("s-tab", filter=~palette_open)
+    @bindings.add("s-tab", filter=~palette_open & ~secret_active)
     def focus_previous_pane(event: Any) -> None:
         if event.app.layout.has_focus(output_area):
             event.app.layout.focus(command_area)
@@ -1447,7 +1974,7 @@ def run_tui(
 
     scrollback_focused = Condition(lambda: get_app().layout.has_focus(output_area))
 
-    def move_scrollback_pages(delta: int) -> None:
+    def move_scrollback_cursor(delta: int) -> None:
         document = output_area.buffer.document
         target_row = max(
             0,
@@ -1455,25 +1982,81 @@ def run_tui(
         )
         output_area.buffer.cursor_position = document.translate_row_col_to_index(target_row, 0)
 
+    def scroll_output(
+        event: Any,
+        toolkit_handler: Callable[[Any], None],
+        *,
+        fallback_delta: int,
+        restore_focus: bool,
+    ) -> None:
+        """Move the rendered viewport immediately, even while the composer is focused."""
+        layout = event.app.layout
+        previous = layout.current_control
+        if not layout.has_focus(output_area):
+            layout.focus(output_area)
+        if output_area.window.render_info is None:
+            move_scrollback_cursor(fallback_delta)
+        else:
+            toolkit_handler(event)
+        if restore_focus and previous is not output_area.control:
+            layout.focus(previous)
+        invalidate = getattr(event.app, "invalidate", None)
+        if callable(invalidate):
+            invalidate()
+
     @bindings.add("pageup")
     def scroll_page_up(event: Any) -> None:
-        if not event.app.layout.has_focus(output_area):
-            event.app.layout.focus(output_area)
-        move_scrollback_pages(-10)
+        scroll_output(
+            event,
+            toolkit_scroll_page_up,
+            fallback_delta=-10,
+            restore_focus=True,
+        )
 
     @bindings.add("pagedown")
     def scroll_page_down(event: Any) -> None:
-        if not event.app.layout.has_focus(output_area):
-            event.app.layout.focus(output_area)
-        move_scrollback_pages(10)
+        scroll_output(
+            event,
+            toolkit_scroll_page_down,
+            fallback_delta=10,
+            restore_focus=True,
+        )
+
+    @bindings.add(Keys.ScrollUp, eager=True)
+    def scroll_wheel_up(event: Any) -> None:
+        scroll_output(
+            event,
+            toolkit_scroll_one_line_up,
+            fallback_delta=-1,
+            restore_focus=True,
+        )
+
+    @bindings.add(Keys.ScrollDown, eager=True)
+    def scroll_wheel_down(event: Any) -> None:
+        scroll_output(
+            event,
+            toolkit_scroll_one_line_down,
+            fallback_delta=1,
+            restore_focus=True,
+        )
 
     @bindings.add("up", filter=scrollback_focused, eager=True)
     def scroll_line_up(event: Any) -> None:
-        move_scrollback_pages(-1)
+        scroll_output(
+            event,
+            toolkit_scroll_one_line_up,
+            fallback_delta=-1,
+            restore_focus=False,
+        )
 
     @bindings.add("down", filter=scrollback_focused, eager=True)
     def scroll_line_down(event: Any) -> None:
-        move_scrollback_pages(1)
+        scroll_output(
+            event,
+            toolkit_scroll_one_line_down,
+            fallback_delta=1,
+            restore_focus=False,
+        )
 
     @bindings.add("g", filter=scrollback_focused)
     def scroll_to_top(event: Any) -> None:
@@ -1514,7 +2097,8 @@ def run_tui(
                     [("class:composer.frame" if colors else "", "│")]
                 ),
             ),
-            command_area,
+            ConditionalContainer(command_area, filter=~secret_active),
+            ConditionalContainer(secret_area, filter=secret_active),
             Window(
                 width=1,
                 height=1,
@@ -1539,6 +2123,33 @@ def run_tui(
         filter=Condition(lambda: current_rows() >= 22),
     )
     root = HSplit([output_area, palette_window, tip_bar, composer, bottom_spacer])
+    layout = Layout(root, focused_element=command_area)
+
+    def route_mouse_wheel(control: Any) -> None:
+        """Make wheel events over docked chrome scroll the transcript too."""
+        original = control.mouse_handler
+
+        def mouse_handler(mouse_event: Any) -> Any:
+            if mouse_event.event_type in {
+                MouseEventType.SCROLL_UP,
+                MouseEventType.SCROLL_DOWN,
+            }:
+                app = get_app()
+                upward = mouse_event.event_type == MouseEventType.SCROLL_UP
+                scroll_output(
+                    SimpleNamespace(app=app),
+                    toolkit_scroll_one_line_up if upward else toolkit_scroll_one_line_down,
+                    fallback_delta=-1 if upward else 1,
+                    restore_focus=True,
+                )
+                return None
+            return original(mouse_event)
+
+        control.mouse_handler = mouse_handler
+
+    for routed_control in layout.find_all_controls():
+        if routed_control is not output_area.control:
+            route_mouse_wheel(routed_control)
     ui_style = Style.from_dict(
         {
             "surface": "bg:#090909",
@@ -1574,9 +2185,10 @@ def run_tui(
             "palette.selected.meta": "#b7b9bc bg:#343638",
         }
     ) if colors else None
+    application = None
     try:
         application = Application(
-            layout=Layout(root, focused_element=command_area),
+            layout=layout,
             key_bindings=bindings,
             full_screen=True,
             mouse_support=True,
@@ -1593,6 +2205,10 @@ def run_tui(
         return _plain_loop(
             state, dispatcher, input_stream=input_stream, output=output, width=width
         )
+    finally:
+        app_output = getattr(application, "output", None)
+        if app_output is not None and original_terminal_title is not None:
+            app_output.set_title(original_terminal_title)
 
 
 __all__ = [
