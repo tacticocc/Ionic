@@ -56,10 +56,15 @@ jobs:
           const fs = require("node:fs");
           const pkg = require("./desktop/package.json");
 
+          const releaseTarget = process.env.RELEASE_TARGET || "";
+          const normalizedReleaseTarget =
+            releaseTarget === "main" || /^[0-9a-fA-F]{40}$/.test(releaseTarget)
+              ? "main"
+              : releaseTarget;
           const branch = process.env.EVENT_NAME === "pull_request"
             ? process.env.BASE_REF
             : process.env.EVENT_NAME === "release"
-              ? process.env.RELEASE_TARGET
+              ? normalizedReleaseTarget
               : process.env.REF_NAME;
           const expected = branch === "main" ? "essential" : null;
           if (!expected) {
@@ -105,8 +110,20 @@ jobs:
         env:
           RELEASE_TARGET: ${{ github.event.release.target_commitish }}
         run: |
-          git merge-base --is-ancestor "$GITHUB_SHA" "origin/$RELEASE_TARGET" || {
-            echo "Release tag commit $GITHUB_SHA is not on origin/$RELEASE_TARGET." >&2
+          if [[ "$RELEASE_TARGET" != "main" ]]; then
+            if [[ ! "$RELEASE_TARGET" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              echo "Unsupported release target: ${RELEASE_TARGET:-an empty target}." >&2
+              exit 1
+            fi
+
+            git merge-base --is-ancestor "$RELEASE_TARGET" "origin/main" || {
+              echo "Release target $RELEASE_TARGET is not on origin/main." >&2
+              exit 1
+            }
+          fi
+
+          git merge-base --is-ancestor "$GITHUB_SHA" "origin/main" || {
+            echo "Release tag commit $GITHUB_SHA is not on origin/main." >&2
             exit 1
           }
 
