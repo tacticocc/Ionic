@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from types import SimpleNamespace
 
+from ionic.config import SUBSCRIPTION_CONSENT_VERSION
 from ionic.tui import (
     MAX_COMMAND_CHARS,
     MAX_HISTORY_ENTRIES,
@@ -64,7 +65,7 @@ def test_wide_welcome_matches_launch_card_proportions_and_upper_third_rhythm():
     assert lines.index(border) >= 7
     assert len(visible) <= 13
     assert ".------." in rendered
-    assert "IONIC ESSENTIAL  0.7.0" in rendered
+    assert "IONIC ESSENTIAL  0.7.1" in rendered
     assert "___   ___" not in rendered
     assert all(len(line) <= 161 for line in lines)
 
@@ -87,16 +88,16 @@ def test_fullscreen_welcome_uses_tui_borders_and_canonical_terminal_brand():
     assert "######" not in rendered
     assert rendered.encode("cp950")
     assert "IONIC ESSENTIAL" not in visible[0]
-    assert "IONIC ESSENTIAL  0.7.0" in rendered
+    assert "IONIC ESSENTIAL  0.7.1" in rendered
     assert all(wcswidth(line) <= 161 for line in rendered.splitlines())
 
     compact = welcome_screen(42, 24, box_drawing=True)
-    assert "●═○  IONIC ESSENTIAL  0.7.0" in compact
+    assert "●═○  IONIC ESSENTIAL  0.7.1" in compact
     assert compact.count("IONIC ESSENTIAL") == 1
 
     narrow = welcome_screen(20, 24, box_drawing=True)
     assert "●═○  IONIC" in narrow
-    assert "ESSENTIAL 0.7.0" in narrow
+    assert "ESSENTIAL 0.7.1" in narrow
 
 
 def test_fullscreen_workspace_caption_respects_cjk_and_emoji_cell_width(monkeypatch):
@@ -147,8 +148,172 @@ def test_dispatcher_supports_aliases_help_and_special_session_commands():
     assert dispatcher.dispatch("/ls").argv == ("list",)
     assert calls == [["list"]]
     assert "Ionic commands" in dispatcher.dispatch("/help").output
+    assert "Semantic review commands" in dispatcher.dispatch("/help semantic").output
     assert dispatcher.dispatch("/clear").kind == "clear"
     assert dispatcher.dispatch("/q").kind == "exit"
+
+
+def test_semantic_session_selects_provider_model_and_requires_explicit_check():
+    calls = []
+
+    def invoke(argv, environ):
+        calls.append((list(argv), dict(environ or {})))
+        return 0, "review complete"
+
+    dispatcher = CommandDispatcher(invoker=invoke, environ={})
+    selected = dispatcher.dispatch("/semantic api openai gpt-review")
+
+    assert selected.exit_code == 0
+    assert calls == []
+    assert "No model request was started" in selected.output
+
+    reviewed = dispatcher.dispatch(
+        '/semantic check planner --against "C:\\work\\changed instructions.md"'
+    )
+    assert reviewed.argv == (
+        "check",
+        "planner",
+        "--against",
+        "C:\\work\\changed instructions.md",
+        "--llm",
+    )
+    assert calls[-1][0] == list(reviewed.argv)
+    assert calls[-1][1]["IONIC_MODEL_ACCESS"] == "api"
+    assert calls[-1][1]["IONIC_JUDGE_PROVIDER"] == "openai"
+    assert calls[-1][1]["IONIC_JUDGE_MODEL"] == "gpt-review"
+
+
+def test_semantic_key_is_masked_session_only_and_never_enters_transcript_or_argv():
+    calls = []
+    dispatcher = CommandDispatcher(
+        invoker=lambda argv, env: calls.append((list(argv), dict(env or {})))
+        or (0, "ok"),
+        environ={},
+    )
+    prompt = dispatcher.dispatch("/semantic key set openai")
+    secret = "sk-session-secret-that-must-not-render"
+
+    assert prompt.kind == "secret"
+    assert prompt.output == "openai"
+    configured = dispatcher.set_session_credential("openai", secret)
+    assert configured.exit_code == 0
+    assert secret not in configured.output
+    assert configured.argv == ()
+
+    state = ShellState()
+    state.append("/semantic key set openai", configured)
+    assert secret not in state.text
+    assert secret not in "\n".join(state.history)
+
+    dispatcher.dispatch("/semantic check planner --against changed.md")
+    assert calls[-1][1]["OPENAI_API_KEY"] == secret
+    assert secret not in " ".join(calls[-1][0])
+
+    leaky = CommandDispatcher(
+        invoker=lambda argv, env: (1, f"provider echoed {secret}"), environ={}
+    )
+    leaky.set_session_credential("openai", secret)
+    leaked_result = leaky.dispatch("/semantic check planner --against changed.md")
+    assert secret not in leaked_result.output
+    assert "[REDACTED]" in leaked_result.output
+
+    cleared = dispatcher.dispatch("/semantic key clear openai")
+    assert cleared.exit_code == 0
+    dispatcher.dispatch("/semantic check planner --against changed.md")
+    assert "OPENAI_API_KEY" not in calls[-1][1]
+
+
+def test_semantic_session_rejects_invalid_provider_model_endpoint_and_false_offline_mode():
+    dispatcher = CommandDispatcher(invoker=lambda argv, env: (0, "unused"), environ={})
+
+    assert dispatcher.dispatch("/semantic api cohere").exit_code == 2
+    assert dispatcher.dispatch('/semantic api openai " "').exit_code == 2
+    assert (
+        dispatcher.dispatch("/semantic api local model ftp://localhost:11434/v1").exit_code
+        == 2
+    )
+    assert (
+        dispatcher.dispatch("/semantic api openai model https://example.com/v1").exit_code
+        == 2
+    )
+    assert dispatcher.dispatch("/semantic check planner --no-llm").exit_code == 2
+
+
+def test_semantic_subscription_selects_only_official_runtime_without_tokens():
+    calls = []
+    dispatcher = CommandDispatcher(
+        invoker=lambda argv, env: calls.append((list(argv), dict(env or {}))) or (0, "ok"),
+        environ={"VENDOR_TOKEN": "must-stay-opaque"},
+    )
+
+    selected = dispatcher.dispatch("/semantic subscription openai-codex gpt-subscription")
+    assert selected.exit_code == 0
+    assert "No token was requested" in selected.output
+    assert calls == []
+
+    blocked = dispatcher.dispatch("/semantic check planner --against changed.md")
+    assert blocked.exit_code == 2
+    assert "/semantic consent" in blocked.output
+    assert calls == []
+
+    disclosure = dispatcher.dispatch("/semantic consent")
+    assert disclosure.exit_code == 0
+    assert "official Codex app-server" in disclosure.output
+    assert "Configuration alone sends nothing" in disclosure.output
+    assert SUBSCRIPTION_CONSENT_VERSION in disclosure.output
+    assert calls == []
+
+    wrong = dispatcher.dispatch(
+        f"/semantic consent accept xai-grok-build {SUBSCRIPTION_CONSENT_VERSION}"
+    )
+    assert wrong.exit_code == 2
+    assert calls == []
+
+    accepted = dispatcher.dispatch(
+        f"/semantic consent accept openai-codex {SUBSCRIPTION_CONSENT_VERSION}"
+    )
+    assert accepted.exit_code == 0
+    assert "session only" in accepted.output
+    assert calls == []
+
+    checked = dispatcher.dispatch("/semantic check planner --against changed.md")
+    assert checked.exit_code == 0
+    environment = calls[-1][1]
+    assert environment["IONIC_MODEL_ACCESS"] == "subscription"
+    assert environment["IONIC_SUBSCRIPTION_RUNTIME"] == "openai-codex"
+    assert environment["IONIC_JUDGE_MODEL"] == "gpt-subscription"
+    assert environment["IONIC_SUBSCRIPTION_CONSENT_VERSION"] == SUBSCRIPTION_CONSENT_VERSION
+
+    revoked = dispatcher.dispatch("/semantic consent revoke")
+    assert revoked.exit_code == 0
+    assert dispatcher.dispatch("/semantic check planner --against changed.md").exit_code == 2
+    assert len(calls) == 1
+    assert dispatcher.dispatch("/semantic subscription claude-code").exit_code == 2
+
+
+def test_semantic_subscription_rejects_inherited_consent_until_this_session_accepts():
+    calls = []
+    dispatcher = CommandDispatcher(
+        invoker=lambda argv, env: calls.append((list(argv), dict(env or {}))) or (0, "ok"),
+        environ={
+            "IONIC_MODEL_ACCESS": "subscription",
+            "IONIC_SUBSCRIPTION_RUNTIME": "xai-grok-build",
+            "IONIC_SUBSCRIPTION_CONSENT_VERSION": SUBSCRIPTION_CONSENT_VERSION,
+        },
+    )
+
+    blocked = dispatcher.dispatch("/semantic check planner --against changed.md")
+    assert blocked.exit_code == 2
+    assert calls == []
+
+    disclosure = dispatcher.dispatch("/semantic consent")
+    assert "official local Grok CLI" in disclosure.output
+    accepted = dispatcher.dispatch(
+        f"/semantic consent accept xai-grok-build {SUBSCRIPTION_CONSENT_VERSION}"
+    )
+    assert accepted.exit_code == 0
+    assert dispatcher.dispatch("/semantic check planner --against changed.md").exit_code == 0
+    assert len(calls) == 1
 
 
 def test_dispatcher_refuses_shell_and_unknown_or_invalid_nested_commands():
@@ -188,9 +353,12 @@ def test_completion_is_deterministic_and_non_mutating():
     assert "/status" in command_candidates("/")
     assert "/version" in command_candidates("/v")
     assert command_candidates("/missing") == []
+    assert "/semantic api" in command_candidates("/semantic a")
+    assert "/semantic check" in command_candidates("/semantic c")
     assert command_specs("/st")[0].description == "Inspect registry health and drift"
     assert command_specs("/d")[0].badge == "new"
     assert command_specs("/repo a")[0].completion == "/repo add "
+    assert command_specs("/semantic key s")[0].badge == "masked"
 
 
 def test_dashboard_reuses_status_and_reports_session_context(tmp_path):
@@ -226,14 +394,17 @@ def test_repository_session_commands_never_mutate_until_workspace_operation(tmp_
         invoker=lambda argv, env: calls.append(argv) or (0, "ok"),
         base_path=tmp_path,
     )
+    assert dispatcher.terminal_title == f"Ionic - registry: {tmp_path.name}"
 
     assert "session only" in dispatcher.dispatch('/repo add alpha "alpha repo"').output
     assert "session only" in dispatcher.dispatch("/repo add beta beta").output
     assert calls == []
     assert dispatcher.selected_repository_id == "alpha"
+    assert dispatcher.terminal_title == "Ionic - repo: alpha"
     assert "* alpha" in dispatcher.dispatch("/repo list").output
     assert dispatcher.dispatch("/repo select beta").exit_code == 0
     assert dispatcher.selected_repository_id == "beta"
+    assert dispatcher.terminal_title == "Ionic - repo: beta"
 
     scanned = dispatcher.dispatch("/workspace scan")
     assert scanned.argv == (
@@ -347,6 +518,23 @@ def test_plain_fallback_reports_a_silent_nonzero_exit():
     assert "Command exited with status 7." in output.getvalue()
 
 
+def test_plain_fallback_refuses_unmasked_secret_entry_and_names_safe_alternative():
+    output = StringIO()
+    code = run_tui(
+        input_stream=StringIO("/semantic key set openai\n/quit\n"),
+        output=output,
+        is_tty=False,
+        environ={},
+        dispatcher=CommandDispatcher(environ={}),
+        width=40,
+    )
+
+    assert code == 0
+    rendered = output.getvalue()
+    assert "Masked credential entry needs the fullscreen TUI" in rendered
+    assert "OPENAI_API_KEY" in rendered
+
+
 def test_fullscreen_layout_keeps_context_scrollback_composer_and_status_docked(monkeypatch):
     import prompt_toolkit.application
 
@@ -386,15 +574,25 @@ def test_fullscreen_layout_keeps_context_scrollback_composer_and_status_docked(m
         for control in captured["layout"].find_all_controls()
         if hasattr(control, "buffer") and "IONIC ESSENTIAL" in control.buffer.text
     )
+    welcome_window = next(
+        window
+        for window in captured["layout"].find_all_windows()
+        if window.content is welcome_control
+    )
+    assert welcome_control.focus_on_click()
+    assert welcome_window.right_margins
     welcome_buffer = welcome_control.buffer
+    titles = []
     captured["before_render"](
         SimpleNamespace(
             output=SimpleNamespace(
-                get_size=lambda: SimpleNamespace(columns=161, rows=57)
+                get_size=lambda: SimpleNamespace(columns=161, rows=57),
+                set_title=titles.append,
             )
         )
     )
-    assert "IONIC ESSENTIAL  0.7.0" in welcome_buffer.text
+    assert titles == [CommandDispatcher().terminal_title]
+    assert "IONIC ESSENTIAL  0.7.1" in welcome_buffer.text
     assert max(map(len, welcome_buffer.text.splitlines())) <= 161
     assert welcome_buffer.text.splitlines().index(
         next(line for line in welcome_buffer.text.splitlines() if line.strip())
@@ -446,6 +644,8 @@ def test_fullscreen_layout_keeps_context_scrollback_composer_and_status_docked(m
     assert any("tab" in name for name in binding_names)
     assert any("pageup" in name for name in binding_names)
     assert any("pagedown" in name for name in binding_names)
+    assert any("scrollup" in name for name in binding_names)
+    assert any("scrolldown" in name for name in binding_names)
     assert any(name == "keys.up" for name in binding_names)
     assert any(name == "keys.down" for name in binding_names)
 
@@ -479,6 +679,39 @@ def test_fullscreen_layout_keeps_context_scrollback_composer_and_status_docked(m
     composer_control.buffer.cancel_completion()
     composer_control.buffer.reset()
 
+    secret_control = next(
+        control
+        for control in captured["layout"].find_all_controls()
+        if hasattr(control, "buffer")
+        and control not in {welcome_control, composer_control}
+        and "PasswordProcessor" in repr(control.input_processors)
+    )
+    composer_control.buffer.text = "/semantic key set openai"
+    submit_binding = next(
+        binding
+        for binding in captured["key_bindings"].bindings
+        if binding.handler.__name__ == "submit"
+    )
+    event = SimpleNamespace(
+        app=SimpleNamespace(
+            layout=captured["layout"],
+            invalidate=lambda: None,
+            exit=lambda **kwargs: None,
+        )
+    )
+    submit_binding.handler(event)
+    assert captured["layout"].current_control is secret_control
+    secret_control.buffer.text = "sk-masked-not-in-scrollback"
+    save_secret_binding = next(
+        binding
+        for binding in captured["key_bindings"].bindings
+        if binding.handler.__name__ == "save_masked_credential"
+    )
+    save_secret_binding.handler(event)
+    assert captured["layout"].current_control is composer_control
+    assert secret_control.buffer.text == ""
+    assert "sk-masked-not-in-scrollback" not in welcome_buffer.text
+
     tab_binding = next(
         binding
         for binding in captured["key_bindings"].bindings
@@ -492,10 +725,32 @@ def test_fullscreen_layout_keeps_context_scrollback_composer_and_status_docked(m
     assert layout.current_control is composer_control
 
     welcome_buffer.set_document(
-        Document("\n".join(f"line {index}" for index in range(40))),
+        Document("\n".join(f"line {index}" for index in range(89))),
         bypass_readonly=True,
     )
     welcome_buffer.cursor_position = len(welcome_buffer.text)
+    layout.focus(composer_control)
+    welcome_window.vertical_scroll = 55
+    welcome_window.render_info = SimpleNamespace(first_visible_line=lambda: 55)
+    page_up_binding = next(
+        binding
+        for binding in captured["key_bindings"].bindings
+        if binding.handler.__name__ == "scroll_page_up"
+    )
+    page_up_binding.handler(
+        SimpleNamespace(
+            app=SimpleNamespace(
+                layout=layout,
+                current_buffer=welcome_buffer,
+                invalidate=lambda: None,
+            )
+        )
+    )
+    assert welcome_window.vertical_scroll == 0
+    assert welcome_buffer.document.cursor_position_row == 55
+    assert layout.current_control is composer_control
+
+    welcome_window.render_info = None
     layout.focus(welcome_control)
     row_before = welcome_buffer.document.cursor_position_row
     scroll_up_binding = next(

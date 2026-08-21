@@ -134,7 +134,7 @@ before running it:
 
 ### Install the CLI from PyPI
 
-Install the Ionic 0.7.0 CLI from PyPI with:
+Install the Ionic 0.7.1 CLI from PyPI with:
 
 ```sh
 python -m pip install ionic
@@ -203,10 +203,19 @@ and `/workspace scan`, `check`, or `sync` uses that selection unless you supply
 an explicit `--repo` or `--manifest`. Session repositories are not persisted
 to Desktop, disk, or the contract registry.
 
-Tab with an empty command focuses scrollback. Use Up/Down, PageUp/PageDown,
-`g`/`G`, or the mouse wheel to review output, then Tab to return to the command
-bar. `/quit` or Ctrl-D exits. The command bar only runs allowlisted Ionic
-operations; it does not execute shell commands.
+Semantic review remains explicit. `/semantic api PROVIDER [MODEL]` selects a
+direct API backend for the current TUI session, `/semantic key set PROVIDER`
+opens a masked session-only credential prompt, and `/semantic check ...` runs
+the normal Ionic check with `--llm`. `/semantic subscription ...` selects a
+supported official runtime without asking for its token; `/semantic consent`
+then shows the runtime-specific disclosure and exact versioned acceptance
+command. Consent and credentials remain process-local. Configuration alone never
+starts a model request, and workspace v1 remains structural and offline.
+
+PageUp/PageDown and the mouse wheel scroll output while the command bar remains
+ready. Tab with an empty command focuses scrollback for Up/Down and `g`/`G`, then
+Tab returns to the command bar. `/quit` or Ctrl-D exits. The command bar only
+runs allowlisted Ionic operations; it does not execute shell commands.
 
 All direct commands remain available for scripts and automation. Redirected
 input/output, CI, `IONIC_NO_TUI=1`, and Desktop sidecar calls stay
